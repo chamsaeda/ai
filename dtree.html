@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>의사결정 트리 알고리즘</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .popup { 
+      position: fixed; 
+      background-color: #374151; 
+      color: white; 
+      padding: 8px 12px; 
+      border-radius: 6px; 
+      font-size: 0.9em; 
+      font-weight: bold; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+      z-index: 1000; 
+      pointer-events: none; 
+      transition: opacity 0.3s ease; 
+    }
+    body { 
+      font-family: 'Malgun Gothic', sans-serif; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+    }
+    canvas { image-rendering: auto; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const DecisionTreeDemo = () => {
+      const canvasRef = useRef(null);
+      const treeCanvasRef = useRef(null);
+      const WIDTH = 600;
+      const HEIGHT = 500;
+      const PADDING = 50;
+      
+      // 데이터 좌표 범위
+      const DATA_X_MAX = 600;
+      const DATA_Y_MAX = 500;
+
+      // 좌표 변환 함수들
+      const canvasToDataX = (canvasX) => {
+        return ((canvasX - PADDING) / (WIDTH - 2 * PADDING)) * DATA_X_MAX;
+      };
+      
+      const canvasToDataY = (canvasY) => {
+        return ((canvasY - PADDING) / (HEIGHT - 2 * PADDING)) * DATA_Y_MAX;
+      };
+      
+      const dataToCanvasX = (dataX) => {
+        return PADDING + (dataX / DATA_X_MAX) * (WIDTH - 2 * PADDING);
+      };
+      
+      const dataToCanvasY = (dataY) => {
+        return PADDING + (dataY / DATA_Y_MAX) * (HEIGHT - 2 * PADDING);
+      };
+
+      const generateInitialData = () => {
+        const initialPoints = [];
+        // 클래스 A (빨강) - 왼쪽 위
+        for (let i = 0; i < 8; i++) {
+          initialPoints.push({
+            x: 50 + Math.random() * 150,
+            y: 50 + Math.random() * 120,
+            class: 1
+          });
+        }
+        // 클래스 B (파랑) - 왼쪽 아래
+        for (let i = 0; i < 8; i++) {
+          initialPoints.push({
+            x: 50 + Math.random() * 250,
+            y: 250 + Math.random() * 150,
+            class: -1
+          });
+        }
+        // 클래스 C (초록) - 오른쪽
+        for (let i = 0; i < 8; i++) {
+          initialPoints.push({
+            x: 400 + Math.random() * 150,
+            y: 150 + Math.random() * 200,
+            class: 0
+          });
+        }
+        return initialPoints;
+      };
+
+      const [points, setPoints] = useState(generateInitialData());
+      const [selectedClass, setSelectedClass] = useState(1);
+      const [tree, setTree] = useState(null);
+      const [hovered, setHovered] = useState(null);
+
+      const [showPopup, setShowPopup] = useState(false);
+      const [popupPos, setPopupPos] = useState({x:0, y:0});
+      
+      // Tree parameters
+      const [minLeafInstances, setMinLeafInstances] = useState(2);
+      const [minSplitSize, setMinSplitSize] = useState(5);
+      const [maxDepth, setMaxDepth] = useState(10);
+      const [majorityThreshold, setMajorityThreshold] = useState(95);
+
+      // Calculate Gini impurity
+      const calculateGini = (points) => {
+        if (points.length === 0) return 0;
+        const classA = points.filter(p => p.class === 1).length;
+        const classB = points.filter(p => p.class === -1).length;
+        const classC = points.filter(p => p.class === 0).length;
+        const pA = classA / points.length;
+        const pB = classB / points.length;
+        const pC = classC / points.length;
+        return 1 - (pA * pA + pB * pB + pC * pC);
+      };
+
+      // Find best split
+      const findBestSplit = (points) => {
+        let bestGain = -1;
+        let bestSplit = null;
+
+        // Try splits on x-axis
+        const xValues = [...new Set(points.map(p => p.x))].sort((a, b) => a - b);
+        for (let i = 0; i < xValues.length - 1; i++) {
+          const threshold = (xValues[i] + xValues[i + 1]) / 2;
+          const left = points.filter(p => p.x <= threshold);
+          const right = points.filter(p => p.x > threshold);
+          
+          if (left.length >= minLeafInstances && right.length >= minLeafInstances) {
+            const giniParent = calculateGini(points);
+            const giniLeft = calculateGini(left);
+            const giniRight = calculateGini(right);
+            const gain = giniParent - (left.length / points.length * giniLeft + 
+                                       right.length / points.length * giniRight);
+            
+            if (gain > bestGain) {
+              bestGain = gain;
+              bestSplit = { axis: 'x', threshold, left, right };
+            }
+          }
+        }
+
+        // Try splits on y-axis
+        const yValues = [...new Set(points.map(p => p.y))].sort((a, b) => a - b);
+        for (let i = 0; i < yValues.length - 1; i++) {
+          const threshold = (yValues[i] + yValues[i + 1]) / 2;
+          const left = points.filter(p => p.y <= threshold);
+          const right = points.filter(p => p.y > threshold);
+          
+          if (left.length >= minLeafInstances && right.length >= minLeafInstances) {
+            const giniParent = calculateGini(points);
+            const giniLeft = calculateGini(left);
+            const giniRight = calculateGini(right);
+            const gain = giniParent - (left.length / points.length * giniLeft + 
+                                       right.length / points.length * giniRight);
+            
+            if (gain > bestGain) {
+              bestGain = gain;
+              bestSplit = { axis: 'y', threshold, left, right };
+            }
+          }
+        }
+
+        return bestSplit;
+      };
+
+      // Build decision tree recursively
+      const buildTree = (points, depth = 0) => {
+        if (points.length === 0) return null;
+
+        const classACount = points.filter(p => p.class === 1).length;
+        const classBCount = points.filter(p => p.class === -1).length;
+        const classCCount = points.filter(p => p.class === 0).length;
+        
+        const counts = [
+          { class: 1, count: classACount },
+          { class: -1, count: classBCount },
+          { class: 0, count: classCCount }
+        ];
+        const majorityClass = counts.reduce((max, curr) => 
+          curr.count > max.count ? curr : max
+        ).class;
+        const majorityPercent = (Math.max(classACount, classBCount, classCCount) / points.length) * 100;
+
+        // Stopping conditions
+        if (depth >= maxDepth || 
+            points.length < minSplitSize || 
+            majorityPercent >= majorityThreshold ||
+            calculateGini(points) === 0) {
+          return {
+            type: 'leaf',
+            class: majorityClass,
+            points: points,
+            classACount,
+            classBCount,
+            classCCount,
+            gini: calculateGini(points)
+          };
+        }
+
+        const split = findBestSplit(points);
+        if (!split) {
+          return {
+            type: 'leaf',
+            class: majorityClass,
+            points: points,
+            classACount,
+            classBCount,
+            classCCount,
+            gini: calculateGini(points)
+          };
+        }
+
+        return {
+          type: 'node',
+          axis: split.axis,
+          threshold: split.threshold,
+          left: buildTree(split.left, depth + 1),
+          right: buildTree(split.right, depth + 1),
+          points: points,
+          classACount,
+          classBCount,
+          classCCount,
+          gini: calculateGini(points)
+        };
+      };
+
+      const handleTrain = useCallback(() => {
+        if (points.length < 2) return;
+        const newTree = buildTree(points);
+        setTree(newTree);
+      }, [points, minLeafInstances, minSplitSize, maxDepth, majorityThreshold]);
+
+      // Draw data points and decision boundaries
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+        // X축 눈금선 + 숫자
+        ctx.strokeStyle = '#e0e7ff';
+        ctx.lineWidth = 0.8;
+        ctx.font = '12px Malgun Gothic';
+        ctx.fillStyle = '#1f2937';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        for (let i = 0; i <= 6; i++) {
+          const x = PADDING + (WIDTH - 2 * PADDING) * (i / 6);
+          const value = i * 100;
+
+          ctx.beginPath();
+          ctx.moveTo(x, PADDING);
+          ctx.lineTo(x, HEIGHT - PADDING);
+          ctx.stroke();
+
+          ctx.fillText(value, x, PADDING - 10);
+        }
+
+        // Y축 눈금선 + 숫자
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.font = '12px Malgun Gothic';
+
+        for (let i = 0; i <= 5; i++) {
+          const y = PADDING + (HEIGHT - 2 * PADDING) * (i / 5);
+          const value = i * 100;
+
+          ctx.beginPath();
+          ctx.moveTo(PADDING, y);
+          ctx.lineTo(WIDTH - PADDING, y);
+          ctx.stroke();
+
+          ctx.fillText(value, PADDING - 12, y);
+        }
+
+        // Draw decision boundaries
+        if (tree) {
+          const drawBoundaries = (node, minX = 0, maxX = DATA_X_MAX, minY = 0, maxY = DATA_Y_MAX) => {
+            if (!node || node.type === 'leaf') return;
+
+            ctx.strokeStyle = '#16a34a';
+            ctx.lineWidth = 3;
+
+            if (node.axis === 'x') {
+              const lineX = dataToCanvasX(node.threshold);
+              ctx.beginPath();
+              ctx.moveTo(lineX, dataToCanvasY(minY));
+              ctx.lineTo(lineX, dataToCanvasY(maxY));
+              ctx.stroke();
+
+              drawBoundaries(node.left, minX, node.threshold, minY, maxY);
+              drawBoundaries(node.right, node.threshold, maxX, minY, maxY);
+            } else {
+              const lineY = dataToCanvasY(node.threshold);
+              ctx.beginPath();
+              ctx.moveTo(dataToCanvasX(minX), lineY);
+              ctx.lineTo(dataToCanvasX(maxX), lineY);
+              ctx.stroke();
+
+              drawBoundaries(node.left, minX, maxX, minY, node.threshold);
+              drawBoundaries(node.right, minX, maxX, node.threshold, maxY);
+            }
+          };
+
+          drawBoundaries(tree);
+
+          // Fill regions
+          const predictRegion = (x, y, node) => {
+            if (!node) return 0;
+            if (node.type === 'leaf') return node.class;
+            if (node.axis === 'x') {
+              return x <= node.threshold ? predictRegion(x, y, node.left) : predictRegion(x, y, node.right);
+            } else {
+              return y <= node.threshold ? predictRegion(x, y, node.left) : predictRegion(x, y, node.right);
+            }
+          };
+
+          for (let px = PADDING; px < WIDTH - PADDING; px += 4) {
+            for (let py = PADDING; py < HEIGHT - PADDING; py += 4) {
+              const dataX = canvasToDataX(px);
+              const dataY = canvasToDataY(py);
+
+              const prediction = predictRegion(dataX, dataY, tree);
+
+              if (prediction === 1) {
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+              } else if (prediction === -1) {
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.08)';
+              } else {
+                ctx.fillStyle = 'rgba(34, 197, 94, 0.08)';
+              }
+              ctx.fillRect(px, py, 4, 4);
+            }
+          }
+        }
+
+        // Draw points
+        points.forEach(point => {
+          const canvasX = dataToCanvasX(point.x);
+          const canvasY = dataToCanvasY(point.y);
+          
+          ctx.beginPath();
+          ctx.arc(canvasX, canvasY, 8, 0, 2 * Math.PI);
+          if (point.class === 1) {
+            ctx.fillStyle = '#ef4444';
+            ctx.strokeStyle = '#991b1b';
+          } else if (point.class === -1) {
+            ctx.fillStyle = '#3b82f6';
+            ctx.strokeStyle = '#1e40af';
+          } else {
+            ctx.fillStyle = '#22c55e';
+            ctx.strokeStyle = '#15803d';
+          }
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+      }, [points, tree]);
+
+      // Draw tree structure
+      useEffect(() => {
+        const canvas = treeCanvasRef.current;
+        if (!canvas || !tree) return;
+        const ctx = canvas.getContext('2d');
+        
+        let currentMaxDepth = 0;
+        const calcDepth = (node, depth = 0) => {
+            if (!node) return;
+            currentMaxDepth = Math.max(currentMaxDepth, depth);
+            calcDepth(node.left, depth + 1);
+            calcDepth(node.right, depth + 1);
+        };
+        calcDepth(tree);
+
+        const levelHeight = 80;
+        const minWidth = 800;
+        const minHeight = 400;
+        
+        const requiredWidth = Math.max(minWidth, Math.pow(2, Math.min(currentMaxDepth, 8)) * 60);
+        const requiredHeight = Math.max(minHeight, (currentMaxDepth + 2) * levelHeight);
+
+        canvas.width = requiredWidth;
+        canvas.height = requiredHeight;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let nodeCount = 0;
+        const countNodes = (node) => {
+          if (!node) return 0;
+          nodeCount++;
+          if (node.type === 'node') {
+            countNodes(node.left);
+            countNodes(node.right);
+          }
+        };
+        countNodes(tree);
+
+        const maxWidth = Math.pow(2, Math.min(maxDepth, 5));
+        const nodeWidth = Math.min(100, (canvas.width - 40) / maxWidth);
+
+        const drawNode = (node, x, y, width, depth = 0) => {
+          if (!node) return;
+
+          const nodeX = x + width / 2;
+          const nodeY = y;
+
+          // Draw connections to children
+          if (node.type === 'node') {
+            const leftX = x + width / 4;
+            const rightX = x + width * 3 / 4;
+            const childY = y + levelHeight;
+
+            ctx.strokeStyle = '#9333ea';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(nodeX, nodeY + 25);
+            ctx.lineTo(leftX, childY - 25);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(nodeX, nodeY + 25);
+            ctx.lineTo(rightX, childY - 25);
+            ctx.stroke();
+
+            drawNode(node.left, x, childY, width / 2, depth + 1);
+            drawNode(node.right, x + width / 2, childY, width / 2, depth + 1);
+          }
+
+          // Draw node
+          let radius;
+          if (node.type === 'leaf') {
+             radius = 25;        
+          } else {
+             radius = 32;        
+          }
+          ctx.beginPath();
+          if (node.type === 'leaf') {
+             ctx.arc(nodeX, nodeY, radius, 0, 2 * Math.PI);
+          } else {
+             const size = radius * 1.8;     
+             const corner = 16;             
+             ctx.roundRect(nodeX - size/2, nodeY - size/2, size, size, corner);
+          }
+          ctx.closePath();
+          
+          if (node.type === 'leaf') {
+            if (node.class === 1) {
+              ctx.fillStyle = '#ef4444';
+            } else if (node.class === -1) {
+              ctx.fillStyle = '#3b82f6';
+            } else {
+              ctx.fillStyle = '#22c55e';
+            }
+          } else {
+            ctx.fillStyle = '#a855f7';
+          }
+          ctx.fill();
+          ctx.strokeStyle = '#581c87';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+
+          // Draw text
+          ctx.fillStyle = 'white';
+          ctx.font = 'bold 10px Malgun Gothic';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          
+          if (node.type === 'leaf') {
+            ctx.font = '18px Malgun Gothic';
+            ctx.fillText(`${node.points.length}개`, nodeX, nodeY);
+          } else {
+            ctx.fillStyle = 'black';   
+            ctx.fillText(node.axis === 'x' ? 'X' : 'Y', nodeX, nodeY - 15);
+            ctx.font = '18px Malgun Gothic';
+            ctx.fillText(Math.round(node.threshold), nodeX, nodeY);
+            ctx.font = '18px Malgun Gothic';  
+            ctx.fillText(`${node.points.length}개`, nodeX, nodeY + 18);
+          }
+        };
+
+        drawNode(tree, 20, 30, canvas.width - 40);
+      }, [tree, maxDepth]);
+
+      const handleClick = (e) => {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const scaleX = WIDTH / rect.width;
+        const scaleY = HEIGHT / rect.height;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        const canvasY = (e.clientY - rect.top) * scaleY;
+        
+        if (canvasX >= PADDING && canvasX <= WIDTH - PADDING && canvasY >= PADDING && canvasY <= HEIGHT - PADDING) {
+          const dataX = canvasToDataX(canvasX);
+          const dataY = canvasToDataY(canvasY);
+          setPoints([...points, { x: dataX, y: dataY, class: selectedClass }]);
+          setTree(null);
+        }
+      };
+
+      const handleMouseMove = (e) => {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const scaleX = WIDTH / rect.width;
+        const scaleY = HEIGHT / rect.height;
+        const canvasX = (e.clientX - rect.left) * scaleX;
+        const canvasY = (e.clientY - rect.top) * scaleY;
+
+        let found = null;
+        for (let p of points) {
+          const px = dataToCanvasX(p.x);
+          const py = dataToCanvasY(p.y);
+          if (Math.hypot(canvasX - px, canvasY - py) <= 10) {
+            found = p;
+            break;
+          }
+        }
+        setHovered(found);
+      };
+
+      const reset = () => {
+        setPoints(generateInitialData());
+        setTree(null);
+      };
+
+      const handleTreeClick = (e) => {
+        const rect = e.target.getBoundingClientRect();
+        setPopupPos({ x: rect.left + 20, y: rect.bottom + 5 });
+        setShowPopup(true);
+        setTimeout(() => setShowPopup(false), 800);
+      };
+
+      const redCount = points.filter(p => p.class === 1).length;
+      const blueCount = points.filter(p => p.class === -1).length;
+      const greenCount = points.filter(p => p.class === 0).length;
+
+      const countTreeStats = (node) => {
+        if (!node) return { nodes: 0, leaves: 0, maxDepth: 0 };
+        if (node.type === 'leaf') {
+          return { nodes: 1, leaves: 1, maxDepth: 0 };
+        }
+        const left = countTreeStats(node.left);
+        const right = countTreeStats(node.right);
+        return {
+          nodes: 1 + left.nodes + right.nodes,
+          leaves: left.leaves + right.leaves,
+          maxDepth: 1 + Math.max(left.maxDepth, right.maxDepth)
+        };
+      };
+
+      const treeStats = tree ? countTreeStats(tree) : null;
+
+      return (
+        <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {showPopup && <div className="popup" style={{left: popupPos.x, top: popupPos.y, opacity: 1}}>참새다!</div>}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+            <div className="text-sm mb-2 text-indigo-100">부산진여자상업고등학교 인공지능기초 학습자료</div>
+            <h1 className="text-3xl font-bold mb-2">의사결정 트리(Decision Tree)란 무엇일까?</h1>
+            <p className="text-indigo-100">질문을 통해 데이터를 분류하는 직관적인 AI 알고리즘을 체험해보세요</p>
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-indigo-100">
+            <div className="space-y-3 text-gray-700">
+              <div>
+                <h3 className="font-bold text-indigo-900 text-lg mb-2">📚 의사결정 트리란?</h3>
+                <p className="leading-relaxed">
+                  의사결정 트리는 <span className="font-bold text-blue-600">"예/아니오" 질문을 반복</span>하여 데이터를 분류하는 알고리즘이에요.
+                  마치 스무고개 게임처럼, "<span className="font-bold text-green-600">X값이 300보다 작나요?</span>", 
+                  "<span className="font-bold text-green-600">Y값이 200보다 크나요?</span>" 같은 질문으로 
+                  <span className="font-bold text-purple-600">데이터를 단계적으로 나누어</span> 최종 답을 찾아요!
+                </p>
+              </div>
+              
+              <div className="grid md:grid-cols-4 gap-4 mt-4">
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-indigo-700 mb-2">1️⃣ 데이터 추가</h4>
+                  <p className="text-sm">클래스 A, B, 또는 C를 선택한 후 캔버스를 클릭하여 학습 데이터를 추가합니다.</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-green-700 mb-2">2️⃣ 파라미터 조정</h4>
+                  <p className="text-sm">트리의 깊이, 노드 크기 등을 조절하여 트리가 얼마나 복잡해질지 결정합니다.</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-orange-700 mb-2">3️⃣ 학습 실행</h4>
+                  <p className="text-sm">'학습 시작!' 버튼을 클릭하면 AI가 최적의 질문들을 찾아 트리를 만듭니다.</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-purple-700 mb-2">4️⃣ 결과 확인</h4>
+                  <p className="text-sm">만들어진 트리 구조와 결정 경계선을 확인하고 이해해봅니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="space-y-4">
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                  <h3 className="font-bold text-purple-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">⚙️</span>
+                    <span>트리 파라미터</span>
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        리프 노드 최소 개수: {minLeafInstances}
+                      </label>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="10" 
+                        value={minLeafInstances} 
+                        onChange={(e) => setMinLeafInstances(parseInt(e.target.value))} 
+                        className="w-full" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">*마지막 노드에 필요한 최소 데이터 수</p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        최소 분할 크기: {minSplitSize}
+                      </label>
+                      <input 
+                        type="range" 
+                        min="2" 
+                        max="20" 
+                        value={minSplitSize} 
+                        onChange={(e) => setMinSplitSize(parseInt(e.target.value))} 
+                        className="w-full" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">*더 이상 나누지 않을 최소 크기</p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        최대 깊이: {maxDepth}
+                      </label>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="15" 
+                        value={maxDepth} 
+                        onChange={(e) => setMaxDepth(parseInt(e.target.value))} 
+                        className="w-full" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">*트리가 얼마나 깊어질 수 있는지</p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        다수 기준: {majorityThreshold}%
+                      </label>
+                      <input 
+                        type="range" 
+                        min="50" 
+                        max="100" 
+                        value={majorityThreshold} 
+                        onChange={(e) => setMajorityThreshold(parseInt(e.target.value))} 
+                        className="w-full" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">*한 클래스가 이 비율 이상이면 분할 중지</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <h3 className="font-bold text-green-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">📊</span>
+                    <span>데이터 입력</span>
+                  </h3>
+                  <div className="space-y-2">
+                    <button onClick={() => setSelectedClass(1)}
+                      className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === 1 ? 'bg-red-500 text-white shadow-lg scale-105' : 'bg-white text-red-600 border-2 border-red-300 hover:bg-red-50'}`}>
+                      클래스 A 추가
+                    </button>
+                    <button onClick={() => setSelectedClass(-1)}
+                      className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === -1 ? 'bg-blue-500 text-white shadow-lg scale-105' : 'bg-white text-blue-600 border-2 border-blue-300 hover:bg-blue-50'}`}>
+                      클래스 B 추가
+                    </button>
+                    <button onClick={() => setSelectedClass(0)}
+                      className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === 0 ? 'bg-green-500 text-white shadow-lg scale-105' : 'bg-white text-green-600 border-2 border-green-300 hover:bg-green-50'}`}>
+                      클래스 C 추가
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🎮</span>
+                    <span>동작</span>
+                  </h3>
+                  <div className="space-y-2">
+                    <button onClick={handleTrain} disabled={points.length < 2}
+                      className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all">
+                      학습 시작!
+                    </button>
+                    <button onClick={() => { setPoints([]); setTree(null); }}
+                      className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition-all">
+                      모두 지우기
+                    </button>
+                    <button onClick={reset}
+                      className="w-full bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all">
+                      초기화
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-pink-50 p-4 rounded-lg border border-pink-200">
+                  <h3 className="font-bold text-pink-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">📈</span>
+                    <span>통계</span>
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">클래스 A:</span>
+                      <span className="font-bold text-red-600">{redCount}개</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">클래스 B:</span>
+                      <span className="font-bold text-blue-600">{blueCount}개</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">클래스 C:</span>
+                      <span className="font-bold text-green-600">{greenCount}개</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">전체:</span>
+                      <span className="font-bold">{points.length}개</span>
+                    </div>
+                    {treeStats && (
+                      <>
+                        <div className="flex justify-between items-center p-2 bg-purple-100 rounded">
+                          <span className="font-medium">전체 노드:</span>
+                          <span className="font-bold text-purple-700">{treeStats.nodes}개</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-green-100 rounded">
+                          <span className="font-medium">리프 노드:</span>
+                          <span className="font-bold text-green-700">{treeStats.leaves}개</span>
+                        </div>
+                        <div className="flex justify-between items-center p-2 bg-orange-100 rounded">
+                          <span className="font-medium">실제 깊이:</span>
+                          <span className="font-bold text-orange-700">{treeStats.maxDepth}</span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-3 space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🎯</span>
+                    <span>2차원 특성 공간</span>
+                  </h3>
+                  <div className="relative bg-white rounded-lg shadow-inner overflow-hidden border-2 border-gray-300">
+                    <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} 
+                      onClick={handleClick} onMouseMove={handleMouseMove} 
+                      onMouseLeave={() => setHovered(null)}
+                      className="block w-full cursor-crosshair" />
+                    {hovered && (
+                      <div className="absolute bg-gray-900 text-white text-xs px-3 py-1 rounded-md pointer-events-none shadow-lg"
+                        style={{ left: dataToCanvasX(hovered.x) + 15, top: dataToCanvasY(hovered.y) - 10 }}>
+                        {hovered.class === 1 ? '클래스 A' : hovered.class === -1 ? '클래스 B' : '클래스 C'}
+                      </div>
+                    )}
+                  </div>
+
+                  {tree && (
+                    <div className="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-lg border-2 border-green-400">
+                      <h3 className="text-xl font-bold text-green-800 mb-3 flex items-center gap-2">
+                        <span>✅</span>
+                        <span>학습 완료!</span>
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <p className="font-semibold text-gray-800 mb-2">
+                            🌳 트리 정보
+                          </p>
+                          <div className="space-y-2 text-sm text-gray-700">
+                            <p>• <span className="font-semibold text-green-600">녹색 선</span>: 데이터를 나누는 결정 경계선</p>
+                            <p>• <span className="font-semibold text-red-400">빨간 영역</span>: 클래스 A로 예측되는 구역</p>
+                            <p>• <span className="font-semibold text-blue-400">파란 영역</span>: 클래스 B로 예측되는 구역</p>
+                            <p>• <span className="font-semibold text-green-400">초록 영역</span>: 클래스 C로 예측되는 구역</p>
+                            <p className="pt-2 border-t border-gray-200">
+                              • 트리는 <span className="font-bold text-purple-600">{treeStats.nodes}개의 노드</span>와 
+                              <span className="font-bold text-green-600"> {treeStats.leaves}개의 리프</span>로 구성되어 있어요
+                            </p>
+                            <p>• 실제 트리 깊이는 <span className="font-bold text-orange-600">{treeStats.maxDepth}단계</span>입니다</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-50 p-4 rounded-lg">
+                          <p className="text-sm font-semibold text-indigo-900 mb-2">💡 어떻게 작동하나요?</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            의사결정 트리는 <span className="font-bold text-blue-600">데이터를 가장 잘 나눌 수 있는 질문</span>을 
+                            찾아요. "X좌표가 300보다 작나요?" 같은 질문으로 
+                            데이터를 <span className="font-bold text-green-600">순수한 그룹</span>으로 나누려고 해요. 
+                            모든 데이터가 같은 클래스가 되거나, 더 이상 나눌 수 없을 때까지 이 과정을 반복합니다!
+                          </p>
+                        </div>
+
+                        {(minLeafInstances < 3 || maxDepth > 10) && (
+                          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                            <p className="text-sm font-semibold text-yellow-900 mb-1">⚠️ 과적합 주의!</p>
+                            <p className="text-sm text-gray-700">
+                              파라미터 설정이 너무 자유로우면 훈련 데이터에만 잘 맞고 
+                              새로운 데이터는 잘 분류하지 못할 수 있어요 (과적합).
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl" onClick={handleTreeClick} style={{cursor:'pointer'}}>🌲</span>
+                    <span>트리 구조</span>
+                  </h3>
+                  <div className="bg-white rounded-lg shadow-inner p-4 border-2 border-gray-300 overflow-auto" style={{maxHeight: '600px'}}>
+                    {tree ? (
+                      <canvas ref={treeCanvasRef} 
+                        className="block" />
+                    ) : (
+                      <div className="text-center py-20 text-gray-400">
+                        <p className="text-lg font-semibold mb-2">트리가 아직 만들어지지 않았어요</p>
+                        <p className="text-sm">데이터를 추가하고 '학습 시작!' 버튼을 눌러보세요</p>
+                      </div>
+                    )}
+                  </div>
+                  {tree && (
+                    <div className="mt-3 bg-purple-50 p-3 rounded-lg">
+                      <p className="text-xs text-gray-700">
+                        <span className="font-bold">💜 보라색 노드</span>: 질문 노드 (X 또는 Y 축으로 분할) | 
+                        <span className="font-bold ml-2">🔴 빨간색 노드</span>: 클래스 A | 
+                        <span className="font-bold ml-2">🔵 파란색 노드</span>: 클래스 B | 
+                        <span className="font-bold ml-2">🟢 초록색 노드</span>: 클래스 C
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-center gap-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-red-500 rounded-full border-2 border-gray-800"></div>
+                    <span className="font-medium text-gray-700">클래스 A</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-blue-500 rounded-full border-2 border-gray-800"></div>
+                    <span className="font-medium text-gray-700">클래스 B</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-green-500 rounded-full border-2 border-gray-800"></div>
+                    <span className="font-medium text-gray-700">클래스 C</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-1 bg-green-600"></div>
+                    <span className="font-medium text-gray-700">결정 경계선</span>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-5 rounded-lg border border-purple-200">
+                  <h3 className="text-lg font-bold text-purple-900 mb-3">🧠 파라미터가 트리에 미치는 영향</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-bold text-purple-600 mb-2">🔢 리프 노드 최소 개수</h4>
+                      <p className="text-sm text-gray-700">
+                        마지막 노드(리프)에 있어야 하는 최소 데이터 개수예요. 
+                        <span className="font-bold text-blue-600"> 값이 크면</span> 트리가 단순해지고, 
+                        <span className="font-bold text-red-600"> 값이 작으면</span> 세밀한 분류가 가능해요.
+                      </p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-bold text-purple-600 mb-2">🔍 최소 분할 크기</h4>
+                      <p className="text-sm text-gray-700">
+                        이 크기보다 작은 그룹은 더 이상 나누지 않아요. 
+                        <span className="font-bold text-blue-600"> 값이 크면</span> 일찍 멈춰서 단순한 트리가 되고, 
+                        <span className="font-bold text-red-600"> 값이 작으면</span> 더 많이 나눠요.
+                      </p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-bold text-purple-600 mb-2">📊 최대 깊이</h4>
+                      <p className="text-sm text-gray-700">
+                        트리가 얼마나 깊어질 수 있는지 제한해요. 
+                        <span className="font-bold text-blue-600"> 깊이가 작으면</span> 단순한 트리, 
+                        <span className="font-bold text-red-600"> 깊이가 크면</span> 복잡하고 세밀한 트리가 만들어져요.
+                      </p>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-bold text-purple-600 mb-2">🎯 다수 기준(%)</h4>
+                      <p className="text-sm text-gray-700">
+                        한 클래스가 이 비율 이상이면 더 이상 나누지 않아요. 
+                        <span className="font-bold text-blue-600"> 90%면</span> 조금만 섞여도 계속 나누고, 
+                        <span className="font-bold text-red-600"> 50%면</span> 반반만 되어도 멈춰요.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-5 rounded-lg border border-blue-200">
+                  <h3 className="text-lg font-bold text-blue-900 mb-3">🎓 의사결정 트리의 장단점</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-bold text-green-600 mb-2">✅ 장점</h4>
+                      <ul className="text-sm text-gray-700 space-y-1">
+                        <li>• 이해하기 쉽고 해석이 직관적이에요</li>
+                        <li>• 시각화가 가능해서 설명하기 좋아요</li>
+                        <li>• 숫자 데이터와 범주형 데이터 모두 사용 가능해요</li>
+                        <li>• 데이터 전처리가 거의 필요 없어요</li>
+                        <li>• 3개 이상의 클래스도 분류할 수 있어요</li>
+                      </ul>
+                    </div>
+                    <div className="bg-white p-4 rounded-lg shadow-sm">
+                      <h4 className="font-bold text-red-600 mb-2">⚠️ 단점</h4>
+                      <ul className="text-sm text-gray-700 space-y-1">
+                        <li>• 과적합되기 쉬워요 (훈련 데이터에만 잘 맞음)</li>
+                        <li>• 데이터가 조금만 바뀌어도 트리가 크게 달라져요</li>
+                        <li>• 복잡한 관계는 표현하기 어려워요</li>
+                        <li>• 대각선 경계선은 만들기 어려워요</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<DecisionTreeDemo />);
+  </script>
+</body>
+</html>

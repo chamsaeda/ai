@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>머신러닝 학습 자료 - 메인</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { 
+      font-family: 'Malgun Gothic', sans-serif; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    .card {
+      transition: all 0.3s ease;
+    }
+    .card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    }
+    .icon-animate {
+      transition: transform 0.3s ease;
+    }
+    .card:hover .icon-animate {
+      transform: scale(1.2) rotate(5deg);
+    }
+  </style>
+</head>
+<body>
+  <div class="max-w-7xl mx-auto">
+    <!-- 헤더 -->
+    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden mb-8">
+      <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-8 text-white">
+        <div class="text-sm mb-2 text-indigo-100">부산진여자상업고등학교 인공지능 학습자료</div>
+        <h1 class="text-4xl font-bold mb-3">🤖 머신러닝 알고리즘의 세계</h1>
+        <p class="text-lg text-indigo-100">컴퓨터가 데이터로부터 학습하는 원리를 알아볼까요?</p>
+      </div>
+      
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-indigo-100">
+        <div class="text-gray-700">
+          <h3 class="font-bold text-indigo-900 text-lg mb-2">🎯 학습 목표</h3>
+          <p class="leading-relaxed">
+            이 학습 자료를 통해 <span class="font-bold text-blue-600">머신러닝의 대표적인 알고리즘들이 어떻게 작동하는지</span> 이해할 수 있습니다.
+            실제 데이터를 활용한 시뮬레이션을 통해 <span class="font-bold text-purple-600">AI가 학습하고 예측하는 과정</span>을 직접 체험해봅시다!
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 회귀 알고리즘 섹션 -->
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+        <span>📈</span> 회귀 알고리즘 (연속적인 값 예측)
+      </h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <!-- 선형회귀 -->
+        <a href="linear.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-blue-400 to-blue-600 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">📊</div>
+            <h2 class="text-2xl font-bold mb-2">선형회귀</h2>
+            <p class="text-blue-50">직선으로 데이터의 경향 찾기</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-blue-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">직선의 방정식</span> → y = ax + b</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-indigo-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">최적의 직선</span> → 데이터와 가장 가까운 선</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-purple-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 키로 몸무게 예측하기</p>
+              </div>
+            </div>
+            <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+              <p class="text-sm text-blue-800">
+                <span class="font-bold">💡 핵심 개념:</span> 직선, 기울기, 오차 최소화
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-blue-600 font-bold text-sm">
+                체험하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 다중선형회귀 -->
+        <a href="mlinear.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-cyan-400 to-blue-500 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">📐</div>
+            <h2 class="text-2xl font-bold mb-2">다중선형회귀</h2>
+            <p class="text-cyan-50">여러 요인을 고려한 예측</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-cyan-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-cyan-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">다변수 방정식</span> → y = a₁x₁ + a₂x₂ + ... + b</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-blue-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">여러 특성</span> → 복합적인 요인 반영</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-indigo-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 키, 나이로 몸무게 예측</p>
+              </div>
+            </div>
+            <div class="bg-cyan-50 p-3 rounded-lg border border-cyan-200">
+              <p class="text-sm text-cyan-800">
+                <span class="font-bold">💡 핵심 개념:</span> 다변수, 복합 요인, 평면/초평면
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-cyan-600 font-bold text-sm">
+                학습하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 로지스틱회귀 -->
+        <a href="logistic.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-purple-400 to-pink-500 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">🎯</div>
+            <h2 class="text-2xl font-bold mb-2">로지스틱회귀</h2>
+            <p class="text-purple-50">Yes/No 분류 문제 해결하기</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-purple-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">확률 예측</span> → 0과 1 사이의 값</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-pink-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">S자 곡선</span> → 시그모이드 함수</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-rose-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-rose-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 합격/불합격 예측</p>
+              </div>
+            </div>
+            <div class="bg-purple-50 p-3 rounded-lg border border-purple-200">
+              <p class="text-sm text-purple-800">
+                <span class="font-bold">💡 핵심 개념:</span> 확률, 이진 분류, 시그모이드
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-purple-600 font-bold text-sm">
+                체험하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+      </div>
+    </div>
+
+    <!-- 분류 알고리즘 섹션 -->
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+        <span>🔍</span> 분류 알고리즘 (범주 구분하기)
+      </h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- KNN -->
+        <a href="Knn.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-green-400 to-emerald-500 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">👥</div>
+            <h2 class="text-2xl font-bold mb-2">K-최근접 이웃 (KNN)</h2>
+            <p class="text-green-50">가까운 이웃들의 투표로 결정</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-green-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">거리 계산</span> → 가장 가까운 이웃 찾기</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-emerald-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">다수결 투표</span> → K개 이웃의 의견 종합</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-teal-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 영화 장르 분류</p>
+              </div>
+            </div>
+            <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+              <p class="text-sm text-green-800">
+                <span class="font-bold">💡 핵심 개념:</span> 거리, K값, 다수결
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-green-600 font-bold text-sm">
+                체험하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+        <!-- SVM -->
+        <a href="svm.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-orange-400 to-red-500 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">✂️</div>
+            <h2 class="text-2xl font-bold mb-2">서포트 벡터 머신 (SVM)</h2>
+            <p class="text-orange-50">최적의 경계선으로 분류하기</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-orange-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">결정 경계</span> → 집단을 나누는 선</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-red-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">마진 최대화</span> → 가장 여유로운 경계</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-rose-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-rose-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 이메일 스팸 필터</p>
+              </div>
+            </div>
+            <div class="bg-orange-50 p-3 rounded-lg border border-orange-200">
+              <p class="text-sm text-orange-800">
+                <span class="font-bold">💡 핵심 개념:</span> 초평면, 마진, 서포트 벡터
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-orange-600 font-bold text-sm">
+                학습하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 마할라노비스 거리 -->
+        <a href="maha.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-indigo-400 to-purple-500 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">📏</div>
+            <h2 class="text-2xl font-bold mb-2">마할라노비스 거리</h2>
+            <p class="text-indigo-50">데이터의 분포를 고려한 거리</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-indigo-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-indigo-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">통계적 거리</span> → 분산과 상관관계 고려</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-purple-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">이상치 탐지</span> → 정상 범위 벗어난 데이터</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-pink-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 불량품 검출</p>
+              </div>
+            </div>
+            <div class="bg-indigo-50 p-3 rounded-lg border border-indigo-200">
+              <p class="text-sm text-indigo-800">
+                <span class="font-bold">💡 핵심 개념:</span> 공분산, 표준화, 이상치
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-indigo-600 font-bold text-sm">
+                체험하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+        <!-- 의사결정트리 -->
+        <a href="dtree.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-yellow-400 to-amber-500 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">🌳</div>
+            <h2 class="text-2xl font-bold mb-2">의사결정트리</h2>
+            <p class="text-yellow-50">질문을 통해 답 찾아가기</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-yellow-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">나무 구조</span> → 가지치며 분류하기</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-amber-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">정보 이득</span> → 가장 좋은 질문 선택</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-orange-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-orange-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 동물 종 분류</p>
+              </div>
+            </div>
+            <div class="bg-yellow-50 p-3 rounded-lg border border-yellow-200">
+              <p class="text-sm text-yellow-800">
+                <span class="font-bold">💡 핵심 개념:</span> 트리, 노드, 엔트로피
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-yellow-600 font-bold text-sm">
+                학습하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+      </div>
+    </div>
+
+    <!-- 군집화 알고리즘 섹션 -->
+    <div class="mb-6">
+      <h2 class="text-2xl font-bold text-white mb-4 flex items-center gap-2">
+        <span>🎨</span> 군집화 알고리즘 (그룹 나누기)
+      </h2>
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        <!-- K-평균 -->
+        <a href="Kmeans.html" class="card bg-white rounded-2xl shadow-xl overflow-hidden block">
+          <div class="bg-gradient-to-r from-teal-400 to-cyan-500 p-6 text-white">
+            <div class="text-5xl mb-3 icon-animate">🎪</div>
+            <h2 class="text-2xl font-bold mb-2">K-평균 알고리즘</h2>
+            <p class="text-teal-50">비슷한 데이터끼리 묶기</p>
+          </div>
+          <div class="p-6">
+            <div class="space-y-3 text-gray-700 mb-4">
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-teal-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-teal-600 font-bold text-sm">1</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">중심점 설정</span> → K개의 기준점</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-cyan-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-cyan-600 font-bold text-sm">2</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">반복 계산</span> → 중심 이동하며 최적화</p>
+              </div>
+              <div class="flex items-start gap-2">
+                <div class="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span class="text-blue-600 font-bold text-sm">3</span>
+                </div>
+                <p class="text-sm"><span class="font-bold">활용 예시</span> → 고객 그룹 분석</p>
+              </div>
+            </div>
+            <div class="bg-teal-50 p-3 rounded-lg border border-teal-200">
+              <p class="text-sm text-teal-800">
+                <span class="font-bold">💡 핵심 개념:</span> 중심점, 반복, 비지도 학습
+              </p>
+            </div>
+            <div class="mt-4 text-right">
+              <span class="inline-flex items-center gap-2 text-teal-600 font-bold text-sm">
+                체험하러 가기 →
+              </span>
+            </div>
+          </div>
+        </a>
+
+      </div>
+    </div>
+
+    <!-- 학습 가이드 -->
+    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden mt-8 p-8">
+      <h3 class="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+        <span>📚</span>
+        머신러닝 알고리즘 학습 가이드
+      </h3>
+      
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div class="bg-blue-50 p-4 rounded-xl border border-blue-200">
+          <h4 class="font-bold text-blue-900 mb-2">📖 회귀 알고리즘</h4>
+          <p class="text-sm text-gray-700">
+            숫자를 예측하는 알고리즘입니다. 키로 몸무게 예측하기, 공부 시간으로 성적 예측하기 같은 문제를 해결합니다.
+          </p>
+        </div>
+        
+        <div class="bg-green-50 p-4 rounded-xl border border-green-200">
+          <h4 class="font-bold text-green-900 mb-2">🎯 분류 알고리즘</h4>
+          <p class="text-sm text-gray-700">
+            범주를 구분하는 알고리즘입니다. 사진 속 동물이 고양이인지 강아지인지, 이메일이 스팸인지 아닌지 판단합니다.
+          </p>
+        </div>
+        
+        <div class="bg-purple-50 p-4 rounded-xl border border-purple-200">
+          <h4 class="font-bold text-purple-900 mb-2">🎨 군집화 알고리즘</h4>
+          <p class="text-sm text-gray-700">
+            정답 없이 비슷한 데이터끼리 묶는 알고리즘입니다. 고객을 비슷한 소비 패턴끼리 그룹으로 나눌 수 있습니다.
+          </p>
+        </div>
+        
+        <div class="bg-orange-50 p-4 rounded-xl border border-orange-200">
+          <h4 class="font-bold text-orange-900 mb-2">💪 학습 방법</h4>
+          <p class="text-sm text-gray-700">
+            각 알고리즘 페이지에서 직접 데이터를 입력하고 결과를 확인해보세요. 반복 학습이 가장 좋은 이해 방법입니다!
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-xl mt-6 border border-blue-200">
+        <h4 class="font-bold text-blue-900 mb-3 flex items-center gap-2">
+          <span class="text-xl">💭</span>
+          생각해볼 문제
+        </h4>
+        <ul class="space-y-2 text-gray-700">
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q1.</span>
+            <span>선형회귀와 로지스틱회귀의 차이는 무엇일까요?</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q2.</span>
+            <span>KNN에서 K값을 어떻게 정하는 것이 좋을까요?</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q3.</span>
+            <span>의사결정트리는 어떤 순서로 질문을 만들까요?</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q4.</span>
+            <span>K-평균 알고리즘에서 K는 어떻게 결정할까요?</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q5.</span>
+            <span>SVM은 어떻게 최적의 경계선을 찾을까요?</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q6.</span>
+            <span>마할라노비스 거리는 유클리드 거리와 어떻게 다를까요?</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q7.</span>
+            <span>다중선형회귀에서 변수가 많아지면 어떤 문제가 생길까요?</span>
+          </li>
+          <li class="flex items-start gap-2">
+            <span class="text-blue-600 font-bold">Q8.</span>
+            <span>실생활에서 각 알고리즘을 어디에 활용할 수 있을까요?</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- 푸터 -->
+    <div class="text-center mt-8 text-white text-sm">
+      <p>부산진여자상업고등학교 인공지능 학습자료</p>
+      <p class="mt-1 text-indigo-200">© 2024 All rights reserved</p>
+    </div>
+  </div>
+</body>
+</html>

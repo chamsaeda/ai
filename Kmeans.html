@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>k-Means 클러스터링 알고리즘</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { 
+      font-family: 'Malgun Gothic', sans-serif; 
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      margin: 0;
+      padding: 20px;
+    }
+    canvas { image-rendering: auto; }
+    .popup { 
+      position: fixed; 
+      background-color: #374151; 
+      color: white; 
+      padding: 8px 12px; 
+      border-radius: 6px; 
+      font-size: 0.9em; 
+      font-weight: bold; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
+      z-index: 1000; 
+      pointer-events: none; 
+      transition: opacity 0.3s ease; 
+    }
+    /* ... (기존 body, canvas 스타일 유지) ... */
+  </style>
+</head>
+<body>  
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useCallback } = React;
+
+    const KMeansDemo = () => {
+      const canvasRef = useRef(null);
+      const WIDTH = 600;
+      const HEIGHT = 500;
+      const PADDING = 50;
+
+    const generateInitialData = () => {
+      const initialPoints = [];
+      const TOTAL_POINTS = 25; // 전체 데이터 점의 개수 (원하는 만큼 조절 가능)
+      
+      // 데이터가 그려질 최대 영역의 너비와 높이 계산
+      const drawableWidth = WIDTH - 2 * PADDING;
+      const drawableHeight = HEIGHT - 2 * PADDING;
+
+      for (let i = 0; i < TOTAL_POINTS; i++) {
+        initialPoints.push({
+          // X 좌표: PADDING 부터 (WIDTH - PADDING) 사이에서 무작위
+          x: PADDING + Math.random() * drawableWidth,
+          // Y 좌표: PADDING 부터 (HEIGHT - PADDING) 사이에서 무작위
+          y: PADDING + Math.random() * drawableHeight,
+          cluster: null,
+          originalCluster: i // 원래 클러스터 정보는 이제 무의미하지만 형태 유지를 위해 사용
+        });
+      }
+      return initialPoints;
+    };
+
+      const [points, setPoints] = useState(generateInitialData());
+      const [centroids, setCentroids] = useState([]);
+      const [isRunning, setIsRunning] = useState(false);
+      const [iteration, setIteration] = useState(0);
+      const [converged, setConverged] = useState(false);
+      // 기존 state들 아래에 추가
+      const [stepPhase, setStepPhase] = useState('ASSIGN'); // 'ASSIGN'(배정) 또는 'UPDATE'(이동)
+      // k-Means 파라미터
+      const [numClusters, setNumClusters] = useState(3);
+      const [normalizeColumns, setNormalizeColumns] = useState(true);
+      const [showPopup, setShowPopup] = useState(false);
+      const [popupPos, setPopupPos] = useState({x:0, y:0});
+      const [maxIterations, setMaxIterations] = useState(300);
+      const [reruns, setReruns] = useState(10);
+      const [initMethod, setInitMethod] = useState('kmeans++'); // 'kmeans++' or 'random'
+      const [manualCentroids, setManualCentroids] = useState([]);
+      const [isSelectingCentroids, setIsSelectingCentroids] = useState(false);
+      // 클러스터 색상
+      const clusterColors = [
+        { fill: '#ef4444', stroke: '#991b1b' }, // 빨강
+        { fill: '#3b82f6', stroke: '#1e40af' }, // 파랑
+        { fill: '#22c55e', stroke: '#15803d' }, // 초록
+        { fill: '#f59e0b', stroke: '#b45309' }, // 주황
+        { fill: '#8b5cf6', stroke: '#5b21b6' }, // 보라
+      ];
+
+      // 거리 계산
+      const distance = (p1, p2) => {
+        return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2));
+      };
+
+      // 정규화
+      const normalizePoints = (pts) => {
+        if (!normalizeColumns) return pts;
+        
+        const xValues = pts.map(p => p.x);
+        const yValues = pts.map(p => p.y);
+        const minX = Math.min(...xValues);
+        const maxX = Math.max(...xValues);
+        const minY = Math.min(...yValues);
+        const maxY = Math.max(...yValues);
+        
+        return pts.map(p => ({
+          ...p,
+          normalizedX: (p.x - minX) / (maxX - minX || 1),
+          normalizedY: (p.y - minY) / (maxY - minY || 1)
+        }));
+      };
+
+      // 초기 중심점 설정 (KMeans++ 방식)
+      const initializeCentroidsKMeansPlusPlus = (pts, k) => {
+        const normalizedPts = normalizePoints(pts);
+        const centroids = [];
+        
+        // 첫 번째 중심점은 랜덤하게
+        centroids.push(normalizedPts[Math.floor(Math.random() * normalizedPts.length)]);
+        
+        // 나머지 중심점들은 거리 기반으로 선택
+        while (centroids.length < k) {
+          const distances = normalizedPts.map(p => {
+            const minDist = Math.min(...centroids.map(c => distance(p, c)));
+            return minDist;
+          });
+          
+          const sumDist = distances.reduce((a, b) => a + b, 0);
+          let random = Math.random() * sumDist;
+          
+          for (let i = 0; i < distances.length; i++) {
+            random -= distances[i];
+            if (random <= 0) {
+              centroids.push(normalizedPts[i]);
+              break;
+            }
+          }
+        }
+        
+        return centroids;
+      };
+
+      // 초기 중심점 설정 (Random 방식)
+      const initializeCentroidsRandom = (pts, k) => {
+        const normalizedPts = normalizePoints(pts);
+        const centroids = [];
+        const usedIndices = new Set();
+        
+        while (centroids.length < k) {
+          const randomIndex = Math.floor(Math.random() * normalizedPts.length);
+          if (!usedIndices.has(randomIndex)) {
+            centroids.push(normalizedPts[randomIndex]);
+            usedIndices.add(randomIndex);
+          }
+        }
+        
+        return centroids;
+      };
+
+      // 초기 중심점 설정 (통합)
+      const initializeCentroids = (pts, k, method) => {
+        if (method === 'kmeans++') {
+          return initializeCentroidsKMeansPlusPlus(pts, k);
+        } else {
+          return initializeCentroidsRandom(pts, k);
+        }
+      };
+
+      // 클러스터 할당
+      const assignClusters = (pts, cents) => {
+        const pointsToCheck = normalizeColumns ? normalizePoints(pts) : pts;
+
+        return pointsToCheck.map(p => {
+          const point = normalizeColumns ? 
+            { x: p.normalizedX, y: p.normalizedY } : 
+            { x: p.x, y: p.y };
+          
+          let minDist = Infinity;
+          let cluster = 0;
+          
+          cents.forEach((c, idx) => {
+            const centroid = normalizeColumns ?
+              { x: c.normalizedX, y: c.normalizedY } :
+              { x: c.x, y: c.y };
+            
+            const dist = distance(point, centroid);
+            if (dist < minDist) {
+              minDist = dist;
+              cluster = idx;
+            }
+          });
+          
+          return { ...p, cluster };
+        });
+      };
+
+      // 중심점 업데이트
+      const updateCentroids = (pts, k) => {
+        const newCentroids = [];
+        
+        for (let i = 0; i < k; i++) {
+          const clusterPoints = pts.filter(p => p.cluster === i);
+          
+          if (clusterPoints.length === 0) {
+            // 빈 클러스터면 랜덤하게 재설정
+            // 주의: 기존 데이터의 구조를 유지하며 추가
+            const randomPoint = pts[Math.floor(Math.random() * pts.length)];
+            newCentroids.push({
+              ...randomPoint,
+              // 랜덤 포인트는 이미 정규화된 값을 가지고 있으므로 그대로 사용
+            });
+          } else {
+            // 실제 좌표(x, y)의 평균 계산
+            const avgX = clusterPoints.reduce((sum, p) => sum + p.x, 0) / clusterPoints.length;
+            const avgY = clusterPoints.reduce((sum, p) => sum + p.y, 0) / clusterPoints.length;
+            
+            // 정규화된 좌표(normalizedX, normalizedY)의 평균 계산 (여기가 핵심 수정 사항!)
+            let normX = null;
+            let normY = null;
+            
+            if (normalizeColumns) {
+               normX = clusterPoints.reduce((sum, p) => sum + p.normalizedX, 0) / clusterPoints.length;
+               normY = clusterPoints.reduce((sum, p) => sum + p.normalizedY, 0) / clusterPoints.length;
+            }
+            
+            newCentroids.push({
+              x: avgX,
+              y: avgY,
+              normalizedX: normX,
+              normalizedY: normY
+            });
+          }
+        }
+        
+        return newCentroids;
+      };
+
+      // k-Means 한 스텝 실행 (단계별 분리 버전)
+      const runKMeansStep = useCallback(() => {
+        if (converged || iteration >= maxIterations) {
+          setIsRunning(false);
+          return;
+        }
+
+        if (stepPhase === 'ASSIGN') {
+          // [단계 1] 가까운 중심점으로 그룹 배정 (색깔 바꾸기)
+          const assignedPoints = assignClusters(points, centroids);
+          setPoints(assignedPoints);
+          setStepPhase('UPDATE'); // 다음은 이동할 차례
+          
+        } else {
+          // [단계 2] 중심점 이동 (별 이동하기)
+          const newCentroids = updateCentroids(points, numClusters);
+          
+          // 수렴 체크 (중심점이 거의 안 움직였는지)
+          const hasConverged = centroids.every((c, idx) => {
+            const newC = newCentroids[idx];
+            return Math.abs(c.x - newC.x) < 0.1 && Math.abs(c.y - newC.y) < 0.1;
+          });
+          
+          setCentroids(newCentroids);
+          setIteration(prev => prev + 1); // 한 사이클(배정+이동)이 끝났을 때 횟수 증가
+          setConverged(hasConverged);
+          setStepPhase('ASSIGN'); // 다시 배정할 차례
+          
+          if (hasConverged) {
+            setIsRunning(false);
+          }
+        }
+      }, [points, centroids, iteration, maxIterations, converged, numClusters, stepPhase]); // stepPhase 의존성 추가
+
+      // 자동 실행
+      useEffect(() => {
+        if (isRunning && !converged && iteration < maxIterations) {
+          const timer = setTimeout(runKMeansStep, 500);
+          return () => clearTimeout(timer);
+        }
+      }, [isRunning, converged, iteration, maxIterations, runKMeansStep]);
+
+      // 시작 버튼
+      const handleStart = () => {
+        if (points.length < numClusters) {
+          alert('클러스터 개수보다 데이터가 많아야 합니다!');
+          return;
+        }
+        
+        // 수동 모드이고 중심점이 충분하지 않으면
+        if (initMethod === 'manual' && manualCentroids.length < numClusters) {
+          alert(`${numClusters}개의 중심점을 모두 선택해주세요! (현재 ${manualCentroids.length}개)`);
+          return;
+        }
+        
+        let initialCentroids;
+        if (initMethod === 'manual') {
+          // 수동으로 선택한 중심점 사용
+          initialCentroids = manualCentroids.map(c => ({
+            x: c.x,
+            y: c.y,
+            normalizedX: normalizeColumns ? c.normalizedX : null,
+            normalizedY: normalizeColumns ? c.normalizedY : null
+          }));
+        } else {
+          initialCentroids = initializeCentroids(points, numClusters, initMethod);
+        }
+        
+        setCentroids(initialCentroids);
+        // 수동 선택 모드일 때만 초기 배정을 먼저 수행
+        if (initMethod === 'manual') {
+          const assignedPoints = assignClusters(points, initialCentroids);
+          setPoints(assignedPoints);
+        }
+
+        setIteration(0);
+        setConverged(false);
+        setStepPhase('ASSIGN');
+        setIsRunning(true);
+        setIsSelectingCentroids(false);
+        setManualCentroids([]);
+      };
+
+      // 한 스텝만 실행
+      const handleStep = () => {
+        if (centroids.length === 0) {
+          if (initMethod === 'manual' && manualCentroids.length < numClusters) {
+            alert(`${numClusters}개의 중심점을 모두 선택해주세요! (현재 ${manualCentroids.length}개)`);
+            return;
+          }
+          
+          let initialCentroids;
+          if (initMethod === 'manual') {
+            initialCentroids = manualCentroids.map(c => ({
+              x: c.x,
+              y: c.y,
+              normalizedX: normalizeColumns ? c.normalizedX : null,
+              normalizedY: normalizeColumns ? c.normalizedY : null
+            }));
+          } else {
+            initialCentroids = initializeCentroids(points, numClusters, initMethod);
+          }
+          
+          setCentroids(initialCentroids);
+
+          // 수동 선택 모드일 때만 초기 배정을 먼저 수행
+          if (initMethod === 'manual') {
+            const assignedPoints = assignClusters(points, initialCentroids);
+            setPoints(assignedPoints);
+            setStepPhase('UPDATE'); // 이미 배정했으므로 다음은 UPDATE
+          } else {
+            setStepPhase('ASSIGN');
+          }
+          setIsSelectingCentroids(false);
+          setManualCentroids([]);
+        } else {
+          runKMeansStep();
+        }
+      };
+
+      // 리셋
+      const handleReset = () => {
+        setPoints(generateInitialData());
+        setCentroids([]);
+        setIteration(0);
+        setConverged(false);
+        setIsRunning(false);
+        setStepPhase('ASSIGN'); // ⬅️ 이 줄 추가 (약 292줄)
+        setManualCentroids([]);        // 추가
+        setIsSelectingCentroids(false); // 추가
+      };
+
+      // 모두 지우기
+      const handleClear = () => {
+        setPoints([]);
+        setCentroids([]);
+        setIteration(0);
+        setConverged(false);
+        setIsRunning(false);
+        setStepPhase('ASSIGN'); // ⬅️ 이 줄 추가 (약 292줄)
+        setManualCentroids([]);        // 추가
+        setIsSelectingCentroids(false); // 추가
+      };
+
+      // 수동 중심점 선택 모드 시작
+      const handleStartManualSelection = () => {
+        setManualCentroids([]);
+        setIsSelectingCentroids(true);
+        setCentroids([]);
+        setIteration(0);
+        setConverged(false);
+      };
+
+// 캔버스 그리기
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+        // 격자 그리기
+        ctx.strokeStyle = '#e0e7ff';
+        ctx.lineWidth = 0.8;
+
+        // 세로선
+        for (let i = 0; i <= 6; i++) {
+          const x = PADDING + (WIDTH - 2 * PADDING) * (i / 6);
+          ctx.beginPath();
+          ctx.moveTo(x, PADDING);
+          ctx.lineTo(x, HEIGHT - PADDING);
+          ctx.stroke();
+        }
+
+        // 가로선
+        for (let i = 0; i <= 5; i++) {
+          const y = PADDING + (HEIGHT - 2 * PADDING) * (i / 5);
+          ctx.beginPath();
+          ctx.moveTo(PADDING, y);
+          ctx.lineTo(WIDTH - PADDING, y);
+          ctx.stroke();
+        }
+
+        // 클러스터 영역 그리기 (배경)
+        if (centroids.length > 0) {
+          for (let px = PADDING; px < WIDTH - PADDING; px += 4) {
+            for (let py = PADDING; py < HEIGHT - PADDING; py += 4) {
+              let minDist = Infinity;
+              let cluster = 0;
+              
+              centroids.forEach((c, idx) => {
+                const dist = distance({x: px, y: py}, {x: c.x, y: c.y});
+                if (dist < minDist) {
+                  minDist = dist;
+                  cluster = idx;
+                }
+              });
+              
+              const color = clusterColors[cluster % clusterColors.length];
+              const hex = color.fill;
+              const r = parseInt(hex.slice(1, 3), 16);
+              const g = parseInt(hex.slice(3, 5), 16);
+              const b = parseInt(hex.slice(5, 7), 16);
+              ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
+              
+              ctx.fillRect(px, py, 4, 4);
+            }
+          }
+        }
+
+        // 데이터 포인트 그리기
+        points.forEach(point => {
+          ctx.beginPath();
+          ctx.arc(point.x, point.y, 8, 0, 2 * Math.PI);
+          
+          if (point.cluster !== null && centroids.length > 0) {
+            const color = clusterColors[point.cluster % clusterColors.length];
+            ctx.fillStyle = color.fill;
+            ctx.strokeStyle = color.stroke;
+          } else {
+            ctx.fillStyle = '#9ca3af';
+            ctx.strokeStyle = '#4b5563';
+          }
+          
+          ctx.fill();
+          ctx.lineWidth = 2;
+          ctx.stroke();
+        });
+
+        // 중심점 그리기 (큰 별 모양)
+        centroids.forEach((centroid, idx) => {
+          const color = clusterColors[idx % clusterColors.length];
+          
+          // 별 그리기
+          const cx = centroid.x;
+          const cy = centroid.y;
+          const spikes = 5;
+          const outerRadius = 15;
+          const innerRadius = 7;
+          
+          ctx.beginPath();
+          for (let i = 0; i < spikes * 2; i++) {
+            const radius = i % 2 === 0 ? outerRadius : innerRadius;
+            const angle = (i * Math.PI) / spikes - Math.PI / 2;
+            const x = cx + radius * Math.cos(angle);
+            const y = cy + radius * Math.sin(angle);
+            
+            if (i === 0) {
+              ctx.moveTo(x, y);
+            } else {
+              ctx.lineTo(x, y);
+            }
+          }
+          ctx.closePath();
+          
+          ctx.fillStyle = '#fbbf24';
+          ctx.fill();
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+        });
+
+      // 수동 선택 중인 중심점 그리기 (반투명 별)
+      manualCentroids.forEach((centroid, idx) => {
+        const color = clusterColors[idx % clusterColors.length];
+        
+        const cx = centroid.x;
+        const cy = centroid.y;
+        const spikes = 5;
+        const outerRadius = 15;
+        const innerRadius = 7;
+        
+        ctx.beginPath();
+        for (let i = 0; i < spikes * 2; i++) {
+          const radius = i % 2 === 0 ? outerRadius : innerRadius;
+          const angle = (i * Math.PI) / spikes - Math.PI / 2;
+          const x = cx + radius * Math.cos(angle);
+          const y = cy + radius * Math.sin(angle);
+          
+          if (i === 0) {
+            ctx.moveTo(x, y);
+          } else {
+            ctx.lineTo(x, y);
+          }
+        }
+        ctx.closePath();
+        
+        // 각 중심점을 해당 클러스터 색상으로 표시
+        const r = parseInt(color.fill.slice(1, 3), 16);
+        const g = parseInt(color.fill.slice(3, 5), 16);
+        const b = parseInt(color.fill.slice(5, 7), 16);
+        ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+        ctx.fill();
+        const sr = parseInt(color.stroke.slice(1, 3), 16);
+        const sg = parseInt(color.stroke.slice(3, 5), 16);
+        const sb = parseInt(color.stroke.slice(5, 7), 16);
+        ctx.strokeStyle = `rgba(${sr}, ${sg}, ${sb}, 0.9)`;
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      });
+
+      }, [points, centroids, normalizeColumns, manualCentroids]);
+
+      const handleCheckClick = (e) => { 
+        const rect = e.target.getBoundingClientRect(); 
+        setPopupPos({ x: rect.left + 20, y: rect.bottom + 5 }); 
+        setShowPopup(true); 
+        setTimeout(() => setShowPopup(false), 800); 
+      };
+      // 클릭으로 데이터 추가 또는 중심점 선택
+      const handleClick = (e) => {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const scaleX = WIDTH / rect.width;
+        const scaleY = HEIGHT / rect.height;
+        const x = (e.clientX - rect.left) * scaleX;
+        const y = (e.clientY - rect.top) * scaleY;
+        
+        if (x >= PADDING && x <= WIDTH - PADDING && y >= PADDING && y <= HEIGHT - PADDING) {
+          // 수동 중심점 선택 모드
+          if (isSelectingCentroids) {
+            if (manualCentroids.length < numClusters) {
+              const normalizedPts = normalizePoints([{x, y}]);
+              setManualCentroids([...manualCentroids, {
+                x,
+                y,
+                normalizedX: normalizedPts[0].normalizedX,
+                normalizedY: normalizedPts[0].normalizedY
+              }]);
+            }
+          } 
+          // 일반 데이터 추가 모드
+          else if (!isRunning) {
+            setPoints([...points, { x, y, cluster: null }]);
+            setCentroids([]);
+            setIteration(0);
+            setConverged(false);
+          }
+        }
+      };
+
+      // 클러스터별 데이터 개수 계산
+      const clusterCounts = [];
+      for (let i = 0; i < numClusters; i++) {
+        clusterCounts.push(points.filter(p => p.cluster === i).length);
+      }
+
+      return (
+        <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+          {showPopup && <div className="popup" style={{left: popupPos.x, top: popupPos.y, opacity: 1}}>참새다!</div>}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+            <div className="text-sm mb-2 text-indigo-100">부산진여자상업고등학교 인공지능기초 학습자료</div>
+            <h1 className="text-3xl font-bold mb-2">k-Means 클러스터링이란 무엇일까?</h1>
+            <p className="text-indigo-100">비슷한 데이터끼리 자동으로 그룹을 만드는 AI 알고리즘을 체험해보세요</p>
+          </div>
+
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-indigo-100">
+            <div className="space-y-3 text-gray-700">
+              <div>
+                <h3 className="font-bold text-indigo-900 text-lg mb-2">📚 k-Means 클러스터링이란?</h3>
+                <p className="leading-relaxed">
+                  k-Means는 <span className="font-bold text-blue-600">"비슷한 친구끼리 모으기"</span> 알고리즘이에요.
+                  마치 체육시간에 비슷한 실력의 학생들끼리 모둠 선을 만드는 것처럼, 
+                  <span className="font-bold text-purple-600"> 데이터들을 k개의 그룹으로 자동으로 나눠줍니다! </span>
+                   스무고개 게임처럼 질문하는 게 아니라, <span className="font-bold text-green-600">거리를 재서 가장 가까운 그룹</span>으로 배정해요.
+                </p>
+              </div>
+              
+              <div className="grid md:grid-cols-4 gap-4 mt-4">
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-indigo-700 mb-2">1️⃣ 데이터 추가</h4>
+                  <p className="text-sm">캔버스를 클릭하여 데이터를 추가하거나 초기 데이터를 사용합니다.</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-green-700 mb-2">2️⃣ 클러스터 설정</h4>
+                  <p className="text-sm">몇 개의 그룹으로 나눌지 클러스터 개수를 설정합니다.</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-orange-700 mb-2">3️⃣ 학습 실행</h4>
+                  <p className="text-sm">'자동 실행' 또는 '한 스텝'으로 클러스터링 과정을 관찰합니다.</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg shadow-sm">
+                  <h4 className="font-bold text-purple-700 mb-2">4️⃣ 결과 확인</h4>
+                  <p className="text-sm">데이터가 어떻게 그룹으로 나뉘는지 확인해봅니다.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              <div className="space-y-4">
+                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                  <h3 className="font-bold text-purple-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">⚙️</span>
+                    <span>클러스터 설정</span>
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        클러스터 개수 (k): {numClusters}
+                      </label>
+                      <input 
+                        type="range" 
+                        min="2" 
+                        max="5" 
+                        value={numClusters} 
+                        onChange={(e) => {
+                          setNumClusters(parseInt(e.target.value));
+                          setCentroids([]);
+                          setIteration(0);
+                          setConverged(false);
+                        }}
+                        disabled={isRunning}
+                        className="w-full" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">*몇 개의 그룹으로 나눌까요?</p>
+                    </div>
+
+                    <div>
+  <label className="flex items-center gap-2 cursor-pointer">
+    <input 
+      type="checkbox" 
+      checked={normalizeColumns}
+      onChange={(e) => setNormalizeColumns(e.target.checked)}
+      disabled={isRunning}
+      className="w-4 h-4"
+    />
+    <span className="text-sm text-gray-700">데이터 정규화</span>
+  </label>
+  <p className="text-xs text-gray-500 mt-1">*데이터 크기를 비슷하게 맞춰요</p>
+</div>
+
+<div>
+  <label className="text-sm text-gray-600 block mb-2">
+    초기화 방법
+  </label>
+  <div className="space-y-2">
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input 
+        type="radio" 
+        name="initMethod"
+        value="kmeans++"
+        checked={initMethod === 'kmeans++'}
+        onChange={(e) => {
+          setInitMethod(e.target.value);
+          setIsSelectingCentroids(false);
+          setManualCentroids([]);
+        }}
+        disabled={isRunning}
+        className="w-4 h-4"
+      />
+      <span className="text-sm text-gray-700">KMeans++ (추천)</span>
+    </label>
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input 
+        type="radio" 
+        name="initMethod"
+        value="random"
+        checked={initMethod === 'random'}
+        onChange={(e) => {
+          setInitMethod(e.target.value);
+          setIsSelectingCentroids(false);
+          setManualCentroids([]);
+        }}
+        disabled={isRunning}
+        className="w-4 h-4"
+      />
+      <span className="text-sm text-gray-700">Random</span>
+    </label>
+    <label className="flex items-center gap-2 cursor-pointer">
+      <input 
+        type="radio" 
+        name="initMethod"
+        value="manual"
+        checked={initMethod === 'manual'}
+        onChange={(e) => {
+          setInitMethod(e.target.value);
+          setManualCentroids([]);
+        }}
+        disabled={isRunning}
+        className="w-4 h-4"
+      />
+      <span className="text-sm text-gray-700">수동 선택</span>
+    </label>
+  </div>
+  <p className="text-xs text-gray-500 mt-1">
+    {initMethod === 'kmeans++' 
+      ? '*더 좋은 결과를 위해 멀리 떨어진 점들을 선택해요' 
+      : initMethod === 'random'
+      ? '*완전히 랜덤하게 중심점을 선택해요'
+      : '*캔버스를 클릭해서 직접 중심점을 선택해요'}
+  </p>
+  
+  {initMethod === 'manual' && (
+    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+      <p className="text-sm font-semibold text-blue-900 mb-1">
+        📍 중심점 선택: {manualCentroids.length} / {numClusters}
+      </p>
+      <button
+        onClick={handleStartManualSelection}
+        disabled={isRunning}
+        className="w-full mt-2 bg-blue-500 text-white py-2 rounded font-semibold hover:bg-blue-600 disabled:bg-gray-300 text-sm"
+      >
+        {isSelectingCentroids ? '중심점 선택 중...' : '중심점 선택 시작'}
+      </button>
+      {isSelectingCentroids && (
+        <p className="text-xs text-blue-700 mt-2">
+          캔버스를 클릭해서 {numClusters}개의 중심점을 선택하세요!
+        </p>
+      )}
+    </div>
+  )}
+</div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        최대 반복 횟수: {maxIterations}
+                      </label>
+                      <input 
+                        type="range" 
+                        min="50" 
+                        max="500" 
+                        step="50"
+                        value={maxIterations} 
+                        onChange={(e) => setMaxIterations(parseInt(e.target.value))}
+                        disabled={isRunning}
+                        className="w-full" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">*최대 몇 번까지 시도할까요?</p>
+                    </div>
+
+                    <div>
+                      <label className="text-sm text-gray-600 block mb-1">
+                        재실행 횟수: {reruns}
+                      </label>
+                      <input 
+                        type="range" 
+                        min="1" 
+                        max="20" 
+                        value={reruns} 
+                        onChange={(e) => setReruns(parseInt(e.target.value))}
+                        disabled={isRunning}
+                        className="w-full" 
+                      />
+                      <p className="text-xs text-gray-500 mt-1">*더 좋은 결과를 위해 여러 번 시도</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                  <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🎮</span>
+                    <span>동작</span>
+                  </h3>
+                  <div className="space-y-2">
+                    <button 
+                      onClick={handleStart} 
+                      disabled={isRunning || points.length < numClusters}
+                      className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all">
+                      {isRunning ? '실행 중...' : '자동 실행'}
+                    </button>
+                    <button 
+                      onClick={handleStep}
+                      disabled={isRunning || converged}
+                      className="w-full bg-blue-500 text-white py-3 rounded-lg font-semibold hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all">
+                      한 스텝 실행
+                    </button>
+                    <button 
+                      onClick={() => setIsRunning(false)}
+                      disabled={!isRunning}
+                      className="w-full bg-yellow-500 text-white py-3 rounded-lg font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all">
+                      일시정지
+                    </button>
+                    <button 
+                      onClick={handleClear}
+                      disabled={isRunning}
+                      className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 disabled:bg-gray-300 transition-all">
+                      모두 지우기
+                    </button>
+                    <button 
+                      onClick={handleReset}
+                      disabled={isRunning}
+                      className="w-full bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 disabled:bg-gray-300 transition-all">
+                      초기화
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-pink-50 p-4 rounded-lg border border-pink-200">
+                  <h3 className="font-bold text-pink-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">📈</span>
+                    <span>통계</span>
+                  </h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">전체 데이터:</span>
+                      <span className="font-bold">{points.length}개</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">반복 횟수:</span>
+                      <span className="font-bold text-blue-600">{iteration}회</span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">초기화 방법:</span>
+                      <span className="font-bold text-purple-600">
+                        {initMethod === 'kmeans++' ? 'KMeans++' : 'Random'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">상태:</span>
+                      <span className={`font-bold ${converged ? 'text-green-600' : isRunning ? 'text-orange-600' : 'text-gray-600'}`}>
+                        {converged ? '수렴 완료!' : isRunning ? '실행 중' : '대기 중'}
+                      </span>
+                    </div>
+                    
+                    {centroids.length > 0 && (
+                      <>
+                        <div className="pt-2 border-t border-pink-200">
+                          <p className="font-semibold text-pink-900 mb-2">클러스터별 개수</p>
+                        </div>
+                        {clusterCounts.map((count, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 bg-white rounded">
+                            <span className="font-medium flex items-center gap-2">
+                              <span className="w-3 h-3 rounded-full" style={{backgroundColor: clusterColors[idx].fill}}></span>
+                              클러스터 {idx + 1}:
+                            </span>
+                            <span className="font-bold" style={{color: clusterColors[idx].fill}}>{count}개</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-3 space-y-4">
+                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <span className="text-xl">🎯</span>
+                    <span>
+                      {isSelectingCentroids 
+                        ? `중심점 선택 중... (${manualCentroids.length}/${numClusters})`
+                        : '2차원 특성 공간 (클릭하여 데이터 추가)'}
+                    </span>
+                  </h3>
+                  <div className="relative bg-white rounded-lg shadow-inner overflow-hidden border-2 border-gray-300">
+                    <canvas 
+                      ref={canvasRef} 
+                      width={WIDTH} 
+                      height={HEIGHT} 
+                      onClick={handleClick}
+                      className="block w-full cursor-crosshair" 
+                    />
+                  </div>
+
+                  {converged && (
+                    <div className="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-lg border-2 border-green-400">
+                      <h3 className="text-xl font-bold text-green-800 mb-3 flex items-center gap-2">
+                        <span className="text-xl" onClick={handleCheckClick} style={{cursor:'pointer'}}>✅</span>
+                        <span>클러스터링 완료!</span>
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="bg-white p-4 rounded-lg shadow-sm">
+                          <p className="font-semibold text-gray-800 mb-2">
+                            🌟 클러스터링 정보
+                          </p>
+                          <div className="space-y-2 text-sm text-gray-700">
+                            <p>• <span className="font-semibold text-yellow-600">⭐ 노란 별</span>: 각 클러스터의 중심점</p>
+                            <p>• <span className="font-semibold">색상별 영역</span>: 각 클러스터에 속하는 구역</p>
+                            <p>• 이 <span className="font-bold text-purple-600">{iteration}번의 반복</span>으로 최적의 그룹을 찾았어요!</p>
+                            <p>• <span className="font-bold text-green-600">{numClusters}개의 클러스터</span>로 데이터를 나눴어요</p>
+                            <p>• <span className="font-bold text-blue-600">{initMethod === 'kmeans++' ? 'KMeans++' : 'Random'}</span> 초기화 방법을 사용했어요</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-indigo-50 p-4 rounded-lg">
+                          <p className="text-sm font-semibold text-indigo-900 mb-2">💡 어떻게 작동하나요?</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            k-Means는 <span className="font-bold text-blue-600">가장 가까운 중심점</span>을 찾아가는 방식이에요. 
+                            ① 랜덤하게 중심점을 정하고 → ② 각 데이터를 가장 가까운 중심으로 배정하고 → 
+                            ③ 각 그룹의 평균 위치를 새로운 중심으로 정해요. 
+                            이 과정을 <span className="font-bold text-green-600">중심점이 더 이상 안 움직일 때까지</span> 반복합니다!
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-center gap-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 bg-gray-400 rounded-full border-2 border-gray-600"></div>
+                    <span className="font-medium text-gray-700">미분류 데이터</span>
+                  </div>
+                  {clusterColors.slice(0, numClusters).map((color, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full border-2 border-gray-800" style={{backgroundColor: color.fill}}></div>
+                      <span className="font-medium text-gray-700">클러스터 {idx + 1}</span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <div className="text-yellow-500 text-xl">⭐</div>
+                    <span className="font-medium text-gray-700">중심점</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<KMeansDemo />);
+  </script>
+</body>
+</html>
