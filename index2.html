@@ -355,24 +355,6 @@
     <button class="btn btn-dark fullscreen-btn" onclick="toggleFullscreen()">⛶ 전체화면</button>
 
     <script>
-    var DEFAULT_STUDENTS = [
-        {name:"김민준", phone:"010-1234-0001"},{name:"이서연", phone:"010-1234-0002"},
-        {name:"박지호", phone:"010-1234-0003"},{name:"최수아", phone:"010-1234-0004"},
-        {name:"정예준", phone:"010-1234-0005"},{name:"강하은", phone:"010-1234-0006"},
-        {name:"조민서", phone:"010-1234-0007"},{name:"윤도윤", phone:"010-1234-0008"},
-        {name:"장서윤", phone:"010-1234-0009"},{name:"임시우", phone:"010-1234-0010"},
-        {name:"한지민", phone:"010-1234-0011"},{name:"오현우", phone:"010-1234-0012"},
-        {name:"신유나", phone:"010-1234-0013"},{name:"권태양", phone:"010-1234-0014"},
-        {name:"황서준", phone:"010-1234-0015"},{name:"문채원", phone:"010-1234-0016"},
-        {name:"배준혁", phone:"010-1234-0017"},{name:"류하린", phone:"010-1234-0018"},
-        {name:"송지안", phone:"010-1234-0019"},{name:"전우진", phone:"010-1234-0020"},
-        {name:"홍예린", phone:"010-1234-0021"},{name:"남도현", phone:"010-1234-0022"},
-        {name:"구서영", phone:"010-1234-0023"},{name:"양시현", phone:"010-1234-0024"},
-        {name:"백하준", phone:"010-1234-0025"},{name:"천수빈", phone:"010-1234-0026"},
-        {name:"노윤서", phone:"010-1234-0027"},{name:"하지훈", phone:"010-1234-0028"},
-        {name:"곽민아", phone:"010-1234-0029"},{name:"안재윤", phone:"010-1234-0030"}
-    ];
-
     var students = [];
     var pickedStudents = [];
     var rouletteRunning = false;
@@ -381,25 +363,35 @@
         var saved = localStorage.getItem('classroom_students_v2');
         if (saved) {
             students = JSON.parse(saved);
-            // 기존 데이터에 phone 필드 없으면 추가
             students.forEach(function(s, i) {
                 if (!s.phone) s.phone = '010-0000-' + String(i+1).padStart(4,'0');
             });
+            var savedPicked = localStorage.getItem('classroom_picked');
+            if (savedPicked) {
+                pickedStudents = JSON.parse(savedPicked);
+                pickedStudents.forEach(function(p) {
+                    var s = students.find(function(st) { return st.name === p.name; });
+                    if (s) s.picked = true;
+                });
+            }
+            updateDate();
+            render();
         } else {
-            students = DEFAULT_STUDENTS.map(function(item, i) {
-                return { id: i+1, number: i+1, name: item.name, phone: item.phone, status: 'present', picked: false };
-            });
+            // 같은 폴더의 students.csv 파일을 자동으로 불러오기
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', 'students.csv', true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    // status 0은 file:// 프로토콜에서 성공 시 반환
+                    if ((xhr.status === 200 || xhr.status === 0) && xhr.responseText && xhr.responseText.trim()) {
+                        parseCSVStudents(xhr.responseText, true);
+                    }
+                    updateDate();
+                    render();
+                }
+            };
+            xhr.send();
         }
-        var savedPicked = localStorage.getItem('classroom_picked');
-        if (savedPicked) {
-            pickedStudents = JSON.parse(savedPicked);
-            pickedStudents.forEach(function(p) {
-                var s = students.find(function(st) { return st.name === p.name; });
-                if (s) s.picked = true;
-            });
-        }
-        updateDate();
-        render();
     }
 
     function updateDate() {
@@ -560,7 +552,7 @@
         event.target.value = '';
     }
 
-    function parseCSVStudents(text) {
+    function parseCSVStudents(text, silent) {
         var lines = text.split(/\r?\n/).filter(function(l) { return l.trim(); });
         var newStudents = [];
         lines.forEach(function(line, i) {
@@ -589,7 +581,7 @@
             pickedStudents = [];
             save();
             render();
-            alert(newStudents.length + '명의 학생을 불러왔습니다.');
+            if (!silent) alert(newStudents.length + '명의 학생을 불러왔습니다.');
         }
     }
 
