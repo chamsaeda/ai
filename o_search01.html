@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>탐색 알고리즘 - 맹목적 탐색과 정보 이용 탐색</title>
+  <style>
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+      background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    @keyframes bounceOnce {
+      0%, 100% { transform: translateY(0) translateX(-50%); }
+      50% { transform: translateY(-10px) translateX(-50%); }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in { animation: slideIn 0.4s ease-out; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-5px); }
+      40%,80% { transform: translateX(5px); }
+    }
+    .shake { animation: shake 0.4s ease; }
+    @keyframes pulseGlow {
+      0%,100% { filter: drop-shadow(0 0 0px currentColor); }
+      50%     { filter: drop-shadow(0 0 8px currentColor); }
+    }
+    .pulse-glow { animation: pulseGlow 1s ease-in-out infinite; }
+    @keyframes nodePulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.85; transform: scale(1.08); } }
+    .node-pulse-anim { animation: nodePulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; transform-origin: center; }
+    @keyframes popIn {
+      0%   { transform: scale(0.5); opacity: 0; }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pop-in { animation: popIn 0.35s ease-out; }
+  </style>
+  <style>
+/* ── Tailwind utilities (실제 Tailwind CLI v3.4.19로 추출, 소스 전체 스캔) ── */
+*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.19 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #e5e7eb}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0}fieldset,legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder,textarea::-moz-placeholder{opacity:1;color:#9ca3af}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.container{width:100%}@media (min-width:640px){.container{max-width:640px}}@media (min-width:768px){.container{max-width:768px}}@media (min-width:1024px){.container{max-width:1024px}}@media (min-width:1280px){.container{max-width:1280px}}@media (min-width:1536px){.container{max-width:1536px}}.absolute{position:absolute}.relative{position:relative}.-left-2{left:-.5rem}.-top-12{top:-3rem}.-top-2{top:-.5rem}.left-1\/2{left:50%}.z-10{z-index:10}.z-50{z-index:50}.mx-auto{margin-left:auto;margin-right:auto}.-mt-1{margin-top:-.25rem}.mb-0\.5{margin-bottom:.125rem}.mb-1{margin-bottom:.25rem}.mb-2{margin-bottom:.5rem}.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.ml-2{margin-left:.5rem}.ml-auto{margin-left:auto}.mr-1{margin-right:.25rem}.mr-2{margin-right:.5rem}.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}.mt-5{margin-top:1.25rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.table{display:table}.grid{display:grid}.inline-grid{display:inline-grid}.h-10{height:2.5rem}.h-2{height:.5rem}.h-2\.5{height:.625rem}.h-3{height:.75rem}.h-3\.5{height:.875rem}.h-4{height:1rem}.h-5{height:1.25rem}.h-6{height:1.5rem}.h-7{height:1.75rem}.h-9{height:2.25rem}.h-\[64px\]{height:64px}.h-full{height:100%}.w-0\.5{width:.125rem}.w-10{width:2.5rem}.w-2\.5{width:.625rem}.w-28{width:7rem}.w-3{width:.75rem}.w-3\.5{width:.875rem}.w-4{width:1rem}.w-40{width:10rem}.w-5{width:1.25rem}.w-6{width:1.5rem}.w-64{width:16rem}.w-7{width:1.75rem}.w-9{width:2.25rem}.w-full{width:100%}.min-w-\[220px\]{min-width:220px}.max-w-7xl{max-width:80rem}.flex-1{flex:1 1 0%}.border-collapse{border-collapse:collapse}.-translate-x-1\/2{--tw-translate-x:-50%}.-translate-x-1\/2,.rotate-180{transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.rotate-180{--tw-rotate:180deg}.scale-125{--tw-scale-x:1.25;--tw-scale-y:1.25}.scale-125,.transform{transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-default{cursor:default}.cursor-pointer{cursor:pointer}.grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-cols-4{grid-template-columns:repeat(4,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-col-reverse{flex-direction:column-reverse}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.justify-center{justify-content:center}.justify-between{justify-content:space-between}.gap-1{gap:.25rem}.gap-1\.5{gap:.375rem}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.gap-6{gap:1.5rem}.space-y-1>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.25rem*var(--tw-space-y-reverse))}.space-y-1\.5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.375rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.375rem*var(--tw-space-y-reverse))}.space-y-2>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.5rem*var(--tw-space-y-reverse))}.space-y-3>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.75rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.75rem*var(--tw-space-y-reverse))}.space-y-4>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1rem*var(--tw-space-y-reverse))}.space-y-5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem*var(--tw-space-y-reverse))}.space-y-6>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem*var(--tw-space-y-reverse))}.divide-x>:not([hidden])~:not([hidden]){--tw-divide-x-reverse:0;border-right-width:calc(1px*var(--tw-divide-x-reverse));border-left-width:calc(1px*(1 - var(--tw-divide-x-reverse)))}.divide-y>:not([hidden])~:not([hidden]){--tw-divide-y-reverse:0;border-top-width:calc(1px*(1 - var(--tw-divide-y-reverse)));border-bottom-width:calc(1px*var(--tw-divide-y-reverse))}.divide-black>:not([hidden])~:not([hidden]){--tw-divide-opacity:1;border-color:rgb(0 0 0/var(--tw-divide-opacity,1))}.divide-gray-200>:not([hidden])~:not([hidden]){--tw-divide-opacity:1;border-color:rgb(229 231 235/var(--tw-divide-opacity,1))}.overflow-auto{overflow:auto}.overflow-hidden{overflow:hidden}.overflow-x-auto{overflow-x:auto}.whitespace-nowrap{white-space:nowrap}.break-words{overflow-wrap:break-word}.rounded{border-radius:.25rem}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}.rounded-md{border-radius:.375rem}.rounded-xl{border-radius:.75rem}.rounded-r-lg{border-top-right-radius:.5rem;border-bottom-right-radius:.5rem}.border{border-width:1px}.border-2{border-width:2px}.border-4{border-width:4px}.border-b{border-bottom-width:1px}.border-l-4{border-left-width:4px}.border-t{border-top-width:1px}.border-dashed{border-style:dashed}.border-amber-200{--tw-border-opacity:1;border-color:rgb(253 230 138/var(--tw-border-opacity,1))}.border-amber-300{--tw-border-opacity:1;border-color:rgb(252 211 77/var(--tw-border-opacity,1))}.border-amber-500{--tw-border-opacity:1;border-color:rgb(245 158 11/var(--tw-border-opacity,1))}.border-blue-200{--tw-border-opacity:1;border-color:rgb(191 219 254/var(--tw-border-opacity,1))}.border-emerald-100{--tw-border-opacity:1;border-color:rgb(209 250 229/var(--tw-border-opacity,1))}.border-emerald-200{--tw-border-opacity:1;border-color:rgb(167 243 208/var(--tw-border-opacity,1))}.border-gray-100{--tw-border-opacity:1;border-color:rgb(243 244 246/var(--tw-border-opacity,1))}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235/var(--tw-border-opacity,1))}.border-gray-300{--tw-border-opacity:1;border-color:rgb(209 213 219/var(--tw-border-opacity,1))}.border-green-200{--tw-border-opacity:1;border-color:rgb(187 247 208/var(--tw-border-opacity,1))}.border-green-300{--tw-border-opacity:1;border-color:rgb(134 239 172/var(--tw-border-opacity,1))}.border-green-400{--tw-border-opacity:1;border-color:rgb(74 222 128/var(--tw-border-opacity,1))}.border-green-500{--tw-border-opacity:1;border-color:rgb(34 197 94/var(--tw-border-opacity,1))}.border-indigo-200{--tw-border-opacity:1;border-color:rgb(199 210 254/var(--tw-border-opacity,1))}.border-indigo-300{--tw-border-opacity:1;border-color:rgb(165 180 252/var(--tw-border-opacity,1))}.border-indigo-400{--tw-border-opacity:1;border-color:rgb(129 140 248/var(--tw-border-opacity,1))}.border-indigo-500{--tw-border-opacity:1;border-color:rgb(99 102 241/var(--tw-border-opacity,1))}.border-orange-200{--tw-border-opacity:1;border-color:rgb(254 215 170/var(--tw-border-opacity,1))}.border-orange-300{--tw-border-opacity:1;border-color:rgb(253 186 116/var(--tw-border-opacity,1))}.border-orange-500{--tw-border-opacity:1;border-color:rgb(249 115 22/var(--tw-border-opacity,1))}.border-purple-200{--tw-border-opacity:1;border-color:rgb(233 213 255/var(--tw-border-opacity,1))}.border-red-200{--tw-border-opacity:1;border-color:rgb(254 202 202/var(--tw-border-opacity,1))}.border-red-300{--tw-border-opacity:1;border-color:rgb(252 165 165/var(--tw-border-opacity,1))}.border-red-400{--tw-border-opacity:1;border-color:rgb(248 113 113/var(--tw-border-opacity,1))}.border-slate-300{--tw-border-opacity:1;border-color:rgb(203 213 225/var(--tw-border-opacity,1))}.border-teal-200{--tw-border-opacity:1;border-color:rgb(153 246 228/var(--tw-border-opacity,1))}.border-teal-300{--tw-border-opacity:1;border-color:rgb(94 234 212/var(--tw-border-opacity,1))}.border-teal-500{--tw-border-opacity:1;border-color:rgb(20 184 166/var(--tw-border-opacity,1))}.border-transparent{border-color:transparent}.border-yellow-300{--tw-border-opacity:1;border-color:rgb(253 224 71/var(--tw-border-opacity,1))}.bg-amber-100{--tw-bg-opacity:1;background-color:rgb(254 243 199/var(--tw-bg-opacity,1))}.bg-amber-50{--tw-bg-opacity:1;background-color:rgb(255 251 235/var(--tw-bg-opacity,1))}.bg-amber-500{--tw-bg-opacity:1;background-color:rgb(245 158 11/var(--tw-bg-opacity,1))}.bg-black\/40{background-color:rgba(0,0,0,.4)}.bg-blue-100{--tw-bg-opacity:1;background-color:rgb(219 234 254/var(--tw-bg-opacity,1))}.bg-blue-50{--tw-bg-opacity:1;background-color:rgb(239 246 255/var(--tw-bg-opacity,1))}.bg-blue-600{--tw-bg-opacity:1;background-color:rgb(37 99 235/var(--tw-bg-opacity,1))}.bg-blue-800{--tw-bg-opacity:1;background-color:rgb(30 64 175/var(--tw-bg-opacity,1))}.bg-blue-950{--tw-bg-opacity:1;background-color:rgb(23 37 84/var(--tw-bg-opacity,1))}.bg-emerald-100{--tw-bg-opacity:1;background-color:rgb(209 250 229/var(--tw-bg-opacity,1))}.bg-emerald-50{--tw-bg-opacity:1;background-color:rgb(236 253 245/var(--tw-bg-opacity,1))}.bg-emerald-500{--tw-bg-opacity:1;background-color:rgb(16 185 129/var(--tw-bg-opacity,1))}.bg-emerald-600{--tw-bg-opacity:1;background-color:rgb(5 150 105/var(--tw-bg-opacity,1))}.bg-gray-100{--tw-bg-opacity:1;background-color:rgb(243 244 246/var(--tw-bg-opacity,1))}.bg-gray-200{--tw-bg-opacity:1;background-color:rgb(229 231 235/var(--tw-bg-opacity,1))}.bg-gray-300{--tw-bg-opacity:1;background-color:rgb(209 213 219/var(--tw-bg-opacity,1))}.bg-gray-50{--tw-bg-opacity:1;background-color:rgb(249 250 251/var(--tw-bg-opacity,1))}.bg-gray-700{--tw-bg-opacity:1;background-color:rgb(55 65 81/var(--tw-bg-opacity,1))}.bg-green-100{--tw-bg-opacity:1;background-color:rgb(220 252 231/var(--tw-bg-opacity,1))}.bg-green-200{--tw-bg-opacity:1;background-color:rgb(187 247 208/var(--tw-bg-opacity,1))}.bg-green-50{--tw-bg-opacity:1;background-color:rgb(240 253 244/var(--tw-bg-opacity,1))}.bg-green-500{--tw-bg-opacity:1;background-color:rgb(34 197 94/var(--tw-bg-opacity,1))}.bg-green-600{--tw-bg-opacity:1;background-color:rgb(22 163 74/var(--tw-bg-opacity,1))}.bg-indigo-100{--tw-bg-opacity:1;background-color:rgb(224 231 255/var(--tw-bg-opacity,1))}.bg-indigo-50{--tw-bg-opacity:1;background-color:rgb(238 242 255/var(--tw-bg-opacity,1))}.bg-indigo-500{--tw-bg-opacity:1;background-color:rgb(99 102 241/var(--tw-bg-opacity,1))}.bg-indigo-600{--tw-bg-opacity:1;background-color:rgb(79 70 229/var(--tw-bg-opacity,1))}.bg-orange-100{--tw-bg-opacity:1;background-color:rgb(255 237 213/var(--tw-bg-opacity,1))}.bg-orange-50{--tw-bg-opacity:1;background-color:rgb(255 247 237/var(--tw-bg-opacity,1))}.bg-orange-500{--tw-bg-opacity:1;background-color:rgb(249 115 22/var(--tw-bg-opacity,1))}.bg-purple-100{--tw-bg-opacity:1;background-color:rgb(243 232 255/var(--tw-bg-opacity,1))}.bg-purple-50{--tw-bg-opacity:1;background-color:rgb(250 245 255/var(--tw-bg-opacity,1))}.bg-purple-600{--tw-bg-opacity:1;background-color:rgb(147 51 234/var(--tw-bg-opacity,1))}.bg-red-100{--tw-bg-opacity:1;background-color:rgb(254 226 226/var(--tw-bg-opacity,1))}.bg-red-200{--tw-bg-opacity:1;background-color:rgb(254 202 202/var(--tw-bg-opacity,1))}.bg-red-400{--tw-bg-opacity:1;background-color:rgb(248 113 113/var(--tw-bg-opacity,1))}.bg-red-50{--tw-bg-opacity:1;background-color:rgb(254 242 242/var(--tw-bg-opacity,1))}.bg-rose-500{--tw-bg-opacity:1;background-color:rgb(244 63 94/var(--tw-bg-opacity,1))}.bg-sky-100{--tw-bg-opacity:1;background-color:rgb(224 242 254/var(--tw-bg-opacity,1))}.bg-slate-100{--tw-bg-opacity:1;background-color:rgb(241 245 249/var(--tw-bg-opacity,1))}.bg-slate-200{--tw-bg-opacity:1;background-color:rgb(226 232 240/var(--tw-bg-opacity,1))}.bg-slate-800{--tw-bg-opacity:1;background-color:rgb(30 41 59/var(--tw-bg-opacity,1))}.bg-slate-800\/50{background-color:rgba(30,41,59,.5)}.bg-slate-900{--tw-bg-opacity:1;background-color:rgb(15 23 42/var(--tw-bg-opacity,1))}.bg-teal-50{--tw-bg-opacity:1;background-color:rgb(240 253 250/var(--tw-bg-opacity,1))}.bg-teal-600{--tw-bg-opacity:1;background-color:rgb(13 148 136/var(--tw-bg-opacity,1))}.bg-teal-700{--tw-bg-opacity:1;background-color:rgb(15 118 110/var(--tw-bg-opacity,1))}.bg-transparent{background-color:transparent}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.bg-white\/10{background-color:hsla(0,0%,100%,.1)}.bg-yellow-400{--tw-bg-opacity:1;background-color:rgb(250 204 21/var(--tw-bg-opacity,1))}.bg-yellow-50{--tw-bg-opacity:1;background-color:rgb(254 252 232/var(--tw-bg-opacity,1))}.bg-gradient-to-br{background-image:linear-gradient(to bottom right,var(--tw-gradient-stops))}.bg-gradient-to-r{background-image:linear-gradient(to right,var(--tw-gradient-stops))}.from-amber-50{--tw-gradient-from:#fffbeb var(--tw-gradient-from-position);--tw-gradient-to:rgba(255,251,235,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-blue-50{--tw-gradient-from:#eff6ff var(--tw-gradient-from-position);--tw-gradient-to:rgba(239,246,255,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-green-50{--tw-gradient-from:#f0fdf4 var(--tw-gradient-from-position);--tw-gradient-to:rgba(240,253,244,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-indigo-50{--tw-gradient-from:#eef2ff var(--tw-gradient-from-position);--tw-gradient-to:rgba(238,242,255,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-indigo-600{--tw-gradient-from:#4f46e5 var(--tw-gradient-from-position);--tw-gradient-to:rgba(79,70,229,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-indigo-700{--tw-gradient-from:#4338ca var(--tw-gradient-from-position);--tw-gradient-to:rgba(67,56,202,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-orange-50{--tw-gradient-from:#fff7ed var(--tw-gradient-from-position);--tw-gradient-to:rgba(255,247,237,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-purple-50{--tw-gradient-from:#faf5ff var(--tw-gradient-from-position);--tw-gradient-to:rgba(250,245,255,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-slate-50{--tw-gradient-from:#f8fafc var(--tw-gradient-from-position);--tw-gradient-to:rgba(248,250,252,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-slate-900{--tw-gradient-from:#0f172a var(--tw-gradient-from-position);--tw-gradient-to:rgba(15,23,42,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.to-blue-50{--tw-gradient-to:#eff6ff var(--tw-gradient-to-position)}.to-cyan-50{--tw-gradient-to:#ecfeff var(--tw-gradient-to-position)}.to-emerald-50{--tw-gradient-to:#ecfdf5 var(--tw-gradient-to-position)}.to-emerald-950{--tw-gradient-to:#022c22 var(--tw-gradient-to-position)}.to-indigo-50{--tw-gradient-to:#eef2ff var(--tw-gradient-to-position)}.to-pink-50{--tw-gradient-to:#fdf2f8 var(--tw-gradient-to-position)}.to-violet-50{--tw-gradient-to:#f5f3ff var(--tw-gradient-to-position)}.to-violet-600{--tw-gradient-to:#7c3aed var(--tw-gradient-to-position)}.to-violet-700{--tw-gradient-to:#6d28d9 var(--tw-gradient-to-position)}.to-yellow-50{--tw-gradient-to:#fefce8 var(--tw-gradient-to-position)}.p-2{padding:.5rem}.p-2\.5{padding:.625rem}.p-3{padding:.75rem}.p-4{padding:1rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.px-1\.5{padding-left:.375rem;padding-right:.375rem}.px-2{padding-left:.5rem;padding-right:.5rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.py-0\.5{padding-top:.125rem;padding-bottom:.125rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.py-1\.5{padding-top:.375rem;padding-bottom:.375rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.pt-3{padding-top:.75rem}.text-left{text-align:left}.text-center{text-align:center}.text-right{text-align:right}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-4xl{font-size:2.25rem;line-height:2.5rem}.text-5xl{font-size:3rem;line-height:1}.text-\[10px\]{font-size:10px}.text-base{font-size:1rem;line-height:1.5rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:.75rem;line-height:1rem}.font-bold{font-weight:700}.font-extrabold{font-weight:800}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.leading-relaxed{line-height:1.625}.tracking-wider{letter-spacing:.05em}.text-amber-300{--tw-text-opacity:1;color:rgb(252 211 77/var(--tw-text-opacity,1))}.text-amber-400{--tw-text-opacity:1;color:rgb(251 191 36/var(--tw-text-opacity,1))}.text-amber-500{--tw-text-opacity:1;color:rgb(245 158 11/var(--tw-text-opacity,1))}.text-amber-600{--tw-text-opacity:1;color:rgb(217 119 6/var(--tw-text-opacity,1))}.text-amber-700{--tw-text-opacity:1;color:rgb(180 83 9/var(--tw-text-opacity,1))}.text-amber-800{--tw-text-opacity:1;color:rgb(146 64 14/var(--tw-text-opacity,1))}.text-amber-900{--tw-text-opacity:1;color:rgb(120 53 15/var(--tw-text-opacity,1))}.text-blue-50{--tw-text-opacity:1;color:rgb(239 246 255/var(--tw-text-opacity,1))}.text-blue-600{--tw-text-opacity:1;color:rgb(37 99 235/var(--tw-text-opacity,1))}.text-blue-700{--tw-text-opacity:1;color:rgb(29 78 216/var(--tw-text-opacity,1))}.text-blue-800{--tw-text-opacity:1;color:rgb(30 64 175/var(--tw-text-opacity,1))}.text-blue-900{--tw-text-opacity:1;color:rgb(30 58 138/var(--tw-text-opacity,1))}.text-emerald-400{--tw-text-opacity:1;color:rgb(52 211 153/var(--tw-text-opacity,1))}.text-emerald-700{--tw-text-opacity:1;color:rgb(4 120 87/var(--tw-text-opacity,1))}.text-emerald-800{--tw-text-opacity:1;color:rgb(6 95 70/var(--tw-text-opacity,1))}.text-emerald-900{--tw-text-opacity:1;color:rgb(6 78 59/var(--tw-text-opacity,1))}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175/var(--tw-text-opacity,1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128/var(--tw-text-opacity,1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99/var(--tw-text-opacity,1))}.text-gray-700{--tw-text-opacity:1;color:rgb(55 65 81/var(--tw-text-opacity,1))}.text-gray-800{--tw-text-opacity:1;color:rgb(31 41 55/var(--tw-text-opacity,1))}.text-gray-900{--tw-text-opacity:1;color:rgb(17 24 39/var(--tw-text-opacity,1))}.text-green-600{--tw-text-opacity:1;color:rgb(22 163 74/var(--tw-text-opacity,1))}.text-green-700{--tw-text-opacity:1;color:rgb(21 128 61/var(--tw-text-opacity,1))}.text-green-800{--tw-text-opacity:1;color:rgb(22 101 52/var(--tw-text-opacity,1))}.text-green-900{--tw-text-opacity:1;color:rgb(20 83 45/var(--tw-text-opacity,1))}.text-indigo-100{--tw-text-opacity:1;color:rgb(224 231 255/var(--tw-text-opacity,1))}.text-indigo-50{--tw-text-opacity:1;color:rgb(238 242 255/var(--tw-text-opacity,1))}.text-indigo-600{--tw-text-opacity:1;color:rgb(79 70 229/var(--tw-text-opacity,1))}.text-indigo-700{--tw-text-opacity:1;color:rgb(67 56 202/var(--tw-text-opacity,1))}.text-indigo-800{--tw-text-opacity:1;color:rgb(55 48 163/var(--tw-text-opacity,1))}.text-indigo-900{--tw-text-opacity:1;color:rgb(49 46 129/var(--tw-text-opacity,1))}.text-orange-300{--tw-text-opacity:1;color:rgb(253 186 116/var(--tw-text-opacity,1))}.text-orange-500{--tw-text-opacity:1;color:rgb(249 115 22/var(--tw-text-opacity,1))}.text-orange-600{--tw-text-opacity:1;color:rgb(234 88 12/var(--tw-text-opacity,1))}.text-orange-700{--tw-text-opacity:1;color:rgb(194 65 12/var(--tw-text-opacity,1))}.text-orange-800{--tw-text-opacity:1;color:rgb(154 52 18/var(--tw-text-opacity,1))}.text-orange-900{--tw-text-opacity:1;color:rgb(124 45 18/var(--tw-text-opacity,1))}.text-purple-600{--tw-text-opacity:1;color:rgb(147 51 234/var(--tw-text-opacity,1))}.text-purple-700{--tw-text-opacity:1;color:rgb(126 34 206/var(--tw-text-opacity,1))}.text-purple-900{--tw-text-opacity:1;color:rgb(88 28 135/var(--tw-text-opacity,1))}.text-red-600{--tw-text-opacity:1;color:rgb(220 38 38/var(--tw-text-opacity,1))}.text-red-700{--tw-text-opacity:1;color:rgb(185 28 28/var(--tw-text-opacity,1))}.text-red-800{--tw-text-opacity:1;color:rgb(153 27 27/var(--tw-text-opacity,1))}.text-rose-400{--tw-text-opacity:1;color:rgb(251 113 133/var(--tw-text-opacity,1))}.text-sky-400{--tw-text-opacity:1;color:rgb(56 189 248/var(--tw-text-opacity,1))}.text-sky-900{--tw-text-opacity:1;color:rgb(12 74 110/var(--tw-text-opacity,1))}.text-slate-200{--tw-text-opacity:1;color:rgb(226 232 240/var(--tw-text-opacity,1))}.text-slate-300{--tw-text-opacity:1;color:rgb(203 213 225/var(--tw-text-opacity,1))}.text-slate-400{--tw-text-opacity:1;color:rgb(148 163 184/var(--tw-text-opacity,1))}.text-slate-800{--tw-text-opacity:1;color:rgb(30 41 59/var(--tw-text-opacity,1))}.text-teal-600{--tw-text-opacity:1;color:rgb(13 148 136/var(--tw-text-opacity,1))}.text-teal-700{--tw-text-opacity:1;color:rgb(15 118 110/var(--tw-text-opacity,1))}.text-teal-900{--tw-text-opacity:1;color:rgb(19 78 74/var(--tw-text-opacity,1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.text-yellow-300{--tw-text-opacity:1;color:rgb(253 224 71/var(--tw-text-opacity,1))}.text-yellow-900{--tw-text-opacity:1;color:rgb(113 63 18/var(--tw-text-opacity,1))}.opacity-60{opacity:.6}.shadow{--tw-shadow:0 1px 3px 0 rgba(0,0,0,.1),0 1px 2px -1px rgba(0,0,0,.1);--tw-shadow-colored:0 1px 3px 0 var(--tw-shadow-color),0 1px 2px -1px var(--tw-shadow-color)}.shadow,.shadow-2xl{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color)}.shadow-lg{--tw-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color),0 4px 6px -4px var(--tw-shadow-color)}.shadow-lg,.shadow-md{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-md{--tw-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);--tw-shadow-colored:0 4px 6px -1px var(--tw-shadow-color),0 2px 4px -2px var(--tw-shadow-color)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgba(0,0,0,.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-amber-200{--tw-shadow-color:#fde68a;--tw-shadow:var(--tw-shadow-colored)}.shadow-amber-300{--tw-shadow-color:#fcd34d;--tw-shadow:var(--tw-shadow-colored)}.shadow-green-200{--tw-shadow-color:#bbf7d0;--tw-shadow:var(--tw-shadow-colored)}.shadow-indigo-200{--tw-shadow-color:#c7d2fe;--tw-shadow:var(--tw-shadow-colored)}.shadow-orange-200{--tw-shadow-color:#fed7aa;--tw-shadow:var(--tw-shadow-colored)}.shadow-teal-200{--tw-shadow-color:#99f6e4;--tw-shadow:var(--tw-shadow-colored)}.ring-4{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(4px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}.ring-amber-300{--tw-ring-opacity:1;--tw-ring-color:rgb(252 211 77/var(--tw-ring-opacity,1))}.ring-indigo-300{--tw-ring-opacity:1;--tw-ring-color:rgb(165 180 252/var(--tw-ring-opacity,1))}.drop-shadow{--tw-drop-shadow:drop-shadow(0 1px 2px rgba(0,0,0,.1)) drop-shadow(0 1px 1px rgba(0,0,0,.06))}.drop-shadow,.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-colors{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-transform{transition-property:transform;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.duration-300{transition-duration:.3s}.duration-500{transition-duration:.5s}.ease-in-out{transition-timing-function:cubic-bezier(.4,0,.2,1)}.hover\:-translate-y-0\.5:hover{--tw-translate-y:-0.125rem}.hover\:-translate-y-0\.5:hover,.hover\:scale-105:hover{transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.hover\:scale-105:hover{--tw-scale-x:1.05;--tw-scale-y:1.05}.hover\:border-amber-500:hover{--tw-border-opacity:1;border-color:rgb(245 158 11/var(--tw-border-opacity,1))}.hover\:border-gray-500:hover{--tw-border-opacity:1;border-color:rgb(107 114 128/var(--tw-border-opacity,1))}.hover\:border-indigo-300:hover{--tw-border-opacity:1;border-color:rgb(165 180 252/var(--tw-border-opacity,1))}.hover\:border-orange-400:hover{--tw-border-opacity:1;border-color:rgb(251 146 60/var(--tw-border-opacity,1))}.hover\:bg-amber-50:hover{--tw-bg-opacity:1;background-color:rgb(255 251 235/var(--tw-bg-opacity,1))}.hover\:bg-blue-100:hover{--tw-bg-opacity:1;background-color:rgb(219 234 254/var(--tw-bg-opacity,1))}.hover\:bg-emerald-700:hover{--tw-bg-opacity:1;background-color:rgb(4 120 87/var(--tw-bg-opacity,1))}.hover\:bg-gray-100:hover{--tw-bg-opacity:1;background-color:rgb(243 244 246/var(--tw-bg-opacity,1))}.hover\:bg-gray-200:hover{--tw-bg-opacity:1;background-color:rgb(229 231 235/var(--tw-bg-opacity,1))}.hover\:bg-gray-50:hover{--tw-bg-opacity:1;background-color:rgb(249 250 251/var(--tw-bg-opacity,1))}.hover\:bg-gray-800:hover{--tw-bg-opacity:1;background-color:rgb(31 41 55/var(--tw-bg-opacity,1))}.hover\:bg-indigo-50:hover{--tw-bg-opacity:1;background-color:rgb(238 242 255/var(--tw-bg-opacity,1))}.hover\:bg-indigo-700:hover{--tw-bg-opacity:1;background-color:rgb(67 56 202/var(--tw-bg-opacity,1))}.hover\:bg-red-100:hover{--tw-bg-opacity:1;background-color:rgb(254 226 226/var(--tw-bg-opacity,1))}.hover\:bg-teal-100:hover{--tw-bg-opacity:1;background-color:rgb(204 251 241/var(--tw-bg-opacity,1))}.hover\:bg-white\/15:hover{background-color:hsla(0,0%,100%,.15)}.hover\:opacity-90:hover{opacity:.9}.hover\:shadow-lg:hover{--tw-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color),0 4px 6px -4px var(--tw-shadow-color)}.hover\:shadow-lg:hover,.hover\:shadow-xl:hover{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.hover\:shadow-xl:hover{--tw-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px var(--tw-shadow-color)}.active\:scale-95:active{--tw-scale-x:.95;--tw-scale-y:.95;transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.disabled\:opacity-40:disabled{opacity:.4}@media (min-width:640px){.sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (min-width:768px){.md\:col-span-2{grid-column:span 2/span 2}.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.md\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (min-width:1024px){.lg\:col-span-4{grid-column:span 4/span 4}.lg\:col-span-8{grid-column:span 8/span 8}.lg\:grid-cols-12{grid-template-columns:repeat(12,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+  <div id="root">
+    <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+      <div id="app-header" class="bg-gradient-to-r from-indigo-700 to-violet-700 p-6 text-white"></div>
+      <div id="search-tab-buttons" class="flex gap-2 p-4 bg-gray-50 border-b border-gray-200 overflow-x-auto"></div>
+      <div id="search-tab-content" class="p-6"></div>
+      <div class="p-6 text-center border-t border-gray-100">
+        <a href="index.html" class="inline-block bg-gradient-to-r from-indigo-700 to-violet-700 text-white w-64 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-all shadow-lg hover:shadow-xl">
+          🏠 홈으로 돌아가기
+        </a>
+      </div>
+    </div>
+  </div>
+<script>
+/* ═══════════════════════════════════════════
+   색상 유틸
+═══════════════════════════════════════════ */
+const getColor = (c) => ({
+  blue:   { bg:'bg-blue-50',   border:'border-blue-200',   text:'text-blue-900',   accent:'text-blue-600',   badge:'bg-blue-100 text-blue-700',   head:'from-blue-50 to-cyan-50',     btn:'bg-blue-600',   solid:'#2563eb' },
+  green:  { bg:'bg-green-50',  border:'border-green-200',  text:'text-green-900',  accent:'text-green-600',  badge:'bg-green-100 text-green-700',  head:'from-green-50 to-emerald-50', btn:'bg-green-600',  solid:'#16a34a' },
+  orange: { bg:'bg-orange-50', border:'border-orange-200', text:'text-orange-900', accent:'text-orange-600', badge:'bg-orange-100 text-orange-700', head:'from-orange-50 to-yellow-50', btn:'bg-orange-500', solid:'#f97316' },
+  purple: { bg:'bg-purple-50', border:'border-purple-200', text:'text-purple-900', accent:'text-purple-600', badge:'bg-purple-100 text-purple-700', head:'from-purple-50 to-pink-50',   btn:'bg-purple-600', solid:'#9333ea' },
+  amber:  { bg:'bg-amber-50',  border:'border-amber-300',  text:'text-amber-900',  accent:'text-amber-600',  badge:'bg-amber-100 text-amber-700',  head:'from-amber-50 to-yellow-50',  btn:'bg-amber-500',  solid:'#d97706' },
+  indigo: { bg:'bg-indigo-50', border:'border-indigo-200', text:'text-indigo-900', accent:'text-indigo-600', badge:'bg-indigo-100 text-indigo-700', head:'from-indigo-50 to-violet-50', btn:'bg-indigo-600', solid:'#4f46e5' },
+}[c] || {});
+
+/* ───────────────── 트리 데이터 (DFS / BFS 공용) ───────────────── */
+const treeNodes = {
+  A:{x:400,y:40}, B:{x:220,y:150}, C:{x:400,y:150}, D:{x:580,y:150},
+  E:{x:220,y:260}, F:{x:400,y:260}, G:{x:520,y:260}, H:{x:640,y:260},
+  I:{x:170,y:360}, J:{x:270,y:360}, K:{x:640,y:360},
+};
+const defaultTreeEdges = [['A','B'],['A','C'],['A','D'],['B','E'],['C','F'],['D','G'],['D','H'],['E','I'],['E','J'],['H','K']];
+const defaultRoot = 'A';
+
+const buildAdj = (nodeIds, edges) => {
+  const adj = {};
+  nodeIds.forEach(id => { adj[id] = []; });
+  edges.forEach(([a, b]) => {
+    if (!adj[a]) adj[a] = [];
+    if (!adj[b]) adj[b] = [];
+    adj[a].push(b);
+    adj[b].push(a);
+  });
+  return adj;
+};
+
+const computeDfsSteps = (adj, start) => {
+  if (!start || !adj[start]) return [];
+  const visited = new Set();
+  const path = [];
+  const steps = [];
+  const visit = (node) => {
+    visited.add(node);
+    path.push(node);
+    steps.push({ node, aux: [...path] });
+    (adj[node] || []).forEach(nb => { if (!visited.has(nb)) visit(nb); });
+    path.pop();
+  };
+  visit(start);
+  return steps;
+};
+
+const computeBfsSteps = (adj, start) => {
+  if (!start || !adj[start]) return [];
+  const visited = new Set([start]);
+  const queue = [start];
+  const steps = [];
+  while (queue.length) {
+    const node = queue.shift();
+    (adj[node] || []).forEach(nb => {
+      if (!visited.has(nb)) { visited.add(nb); queue.push(nb); }
+    });
+    steps.push({ node, aux: [...queue] });
+  }
+  return steps;
+};
+
+const layoutTree = (nodeIds, edges, root) => {
+  const adj = buildAdj(nodeIds, edges);
+  const level = { [root]: 0 };
+  const order = [root];
+  const visited = new Set([root]);
+  const queue = [root];
+  while (queue.length) {
+    const n = queue.shift();
+    (adj[n] || []).forEach(nb => {
+      if (!visited.has(nb)) { visited.add(nb); level[nb] = level[n] + 1; order.push(nb); queue.push(nb); }
+    });
+  }
+  const byLevel = {};
+  order.forEach(n => { (byLevel[level[n]] = byLevel[level[n]] || []).push(n); });
+  const positions = {};
+  const width = 760, topMargin = 45, rowGap = 95;
+  Object.keys(byLevel).forEach(lvl => {
+    const arr = byLevel[lvl];
+    arr.forEach((n, i) => {
+      positions[n] = { x: (width * (i + 1)) / (arr.length + 1) + 20, y: topMargin + Number(lvl) * rowGap };
+    });
+  });
+  return positions;
+};
+
+const generateRandomTree = (count) => {
+  const labels = [];
+  for (let i = 0; i < count; i++) labels.push(i < 26 ? String.fromCharCode(65 + i) : 'N' + i);
+  const edges = [];
+  for (let i = 1; i < labels.length; i++) {
+    const parentIdx = Math.floor(Math.random() * i);
+    edges.push([labels[parentIdx], labels[i]]);
+  }
+  const positions = layoutTree(labels, edges, labels[0]);
+  return { nodeIds: labels, edges, positions, root: labels[0] };
+};
+
+const arrangeTreeLayout = (nodeIds, edges, root, currentPositions) => {
+  if (!root) return currentPositions;
+  const rawAdj = buildAdj(nodeIds, edges);
+  const adj = {};
+  nodeIds.forEach(id => {
+    const list = (rawAdj[id] || []).slice();
+    list.sort((a, b) => ((currentPositions[a] && currentPositions[a].x) || 0) - ((currentPositions[b] && currentPositions[b].x) || 0));
+    adj[id] = list;
+  });
+  const visited = new Set([root]);
+  const xPos = {}, yLevel = {};
+  let leafCounter = 0;
+  const build = (node, depth) => {
+    yLevel[node] = depth;
+    const kids = (adj[node] || []).filter(nb => !visited.has(nb));
+    kids.forEach(k => visited.add(k));
+    if (kids.length === 0) {
+      xPos[node] = leafCounter; leafCounter += 1;
+    } else {
+      kids.forEach(k => build(k, depth + 1));
+      const xs = kids.map(k => xPos[k]);
+      xPos[node] = xs.reduce((a, b) => a + b, 0) / xs.length;
+    }
+  };
+  build(root, 0);
+
+  const width = 760, topMargin = 45, rowGap = 95;
+  const unit = leafCounter > 0 ? width / (leafCounter + 1) : width / 2;
+  const positions = {};
+  Object.keys(xPos).forEach(n => { positions[n] = { x: 20 + (xPos[n] + 1) * unit, y: topMargin + yLevel[n] * rowGap }; });
+
+  const maxLevel = Object.keys(yLevel).length ? Math.max(...Object.values(yLevel)) : 0;
+  const unreached = nodeIds.filter(n => !(n in positions));
+  unreached.forEach((n, i) => { positions[n] = { x: 40 + i * 70, y: topMargin + (maxLevel + 1) * rowGap + 30 }; });
+
+  return positions;
+};
+
+/* ───────────────── 강 건너기 데이터 ───────────────── */
+const emoji = { 농부:'🧑‍🌾', 양:'🐑', 늑대:'🐺', 양배추:'🥬' };
+const riverStates = [
+  { label:'출발!',                          left:['농부','양','늑대','양배추'], right:[] },
+  { label:'1단계 · 농부가 양을 데리고 이동',   left:['늑대','양배추'],             right:['농부','양'] },
+  { label:'2단계 · 농부 혼자 되돌아옴',        left:['농부','늑대','양배추'],       right:['양'] },
+  { label:'3단계 · 농부가 늑대를 데리고 이동',  left:['양배추'],                    right:['농부','양','늑대'] },
+  { label:'4단계 · 농부가 양을 데리고 되돌아옴',left:['농부','양','양배추'],       right:['늑대'] },
+  { label:'5단계 · 농부가 양배추를 데리고 이동',left:['양'],                        right:['농부','늑대','양배추'] },
+  { label:'6단계 · 농부 혼자 되돌아옴',        left:['농부','양'],                 right:['늑대','양배추'] },
+  { label:'7단계 · 농부가 양을 데리고 이동',    left:[],                            right:['농부','양','늑대','양배추'] },
+  { label:'🎉 완료! 모두 강을 건넜어요',        left:[],                            right:['농부','양','늑대','양배추'] },
+];
+
+/* ───────────────── 8-퍼즐(숫자 슬라이드 퍼즐) 데이터 ───────────────── */
+const PUZZLE_INITIAL = [2,0,3, 1,8,4, 7,6,5];
+const PUZZLE_GOAL = [1,2,3, 8,0,4, 7,6,5];
+const PUZZLE_DIRS = [
+  { key:'좌', label:'좌(왼쪽)', dr:0, dc:-1 },
+  { key:'우', label:'우(오른쪽)', dr:0, dc:1 },
+  { key:'상', label:'상(위쪽)', dr:-1, dc:0 },
+  { key:'하', label:'하(아래쪽)', dr:1, dc:0 },
+];
+const puzzleRC = (i) => [Math.floor(i / 3), i % 3];
+const puzzleApplyMove = (state, dir) => {
+  const blankIdx = state.indexOf(0);
+  const [r, c] = puzzleRC(blankIdx);
+  const nr = r + dir.dr, nc = c + dir.dc;
+  if (nr < 0 || nr > 2 || nc < 0 || nc > 2) return null;
+  const next = state.slice();
+  const ni = nr * 3 + nc;
+  next[blankIdx] = state[ni];
+  next[ni] = 0;
+  return next;
+};
+const PUZZLE_MAX_DEPTH = 3;
+const buildPuzzleTree = () => {
+  const nodesOut = []; const edgesOut = [];
+  let leafCounter = 0;
+  const walk = (state, depth, id, parentState) => {
+    const tries = depth < PUZZLE_MAX_DEPTH
+      ? PUZZLE_DIRS.map(dir => {
+          const next = puzzleApplyMove(state, dir);
+          let status = 'ok';
+          if (!next) status = 'wall';
+          else if (parentState && next.join(',') === parentState.join(',')) status = 'parent';
+          return { dir, next, status };
+        })
+      : [];
+    const validKids = tries.filter(t => t.status === 'ok');
+    let x;
+    if (validKids.length === 0) {
+      x = leafCounter; leafCounter += 1;
+    } else {
+      const xs = validKids.map((t, i) => {
+        const childId = id + '-' + i;
+        edgesOut.push([id, childId]);
+        return walk(t.next, depth + 1, childId, state);
+      });
+      x = xs.reduce((a, b) => a + b, 0) / xs.length;
+    }
+    const isGoal = state.join(',') === PUZZLE_GOAL.join(',');
+    nodesOut.push({ id, state, depth, x, blocked: tries.filter(t => t.status !== 'ok'), isGoal });
+    return x;
+  };
+  walk(PUZZLE_INITIAL, 0, 'proot', null);
+  const BOARD = 64, ROWGAP = 130, UNIT = 92, TOP = 55;
+  const positions = {};
+  nodesOut.forEach(n => { positions[n.id] = { x: UNIT * (n.x + 1), y: TOP + n.depth * ROWGAP }; });
+  const totalWidth = UNIT * (leafCounter + 1) + 20;
+  const maxDepth = Math.max(...nodesOut.map(n => n.depth));
+  const totalHeight = TOP + maxDepth * ROWGAP + BOARD + 30;
+  return { nodesOut, edgesOut, positions, totalWidth, totalHeight, BOARD };
+};
+const puzzleTreeLayout = buildPuzzleTree();
+
+const buildPuzzleOrders = (edgesOut) => {
+  const childrenMap = {};
+  edgesOut.forEach(([a, b]) => { (childrenMap[a] = childrenMap[a] || []).push(b); });
+  const dfsOrder = [];
+  const dfsWalk = (id) => { dfsOrder.push(id); (childrenMap[id] || []).forEach(dfsWalk); };
+  dfsWalk('proot');
+  const bfsOrder = [];
+  const queue = ['proot'];
+  while (queue.length) {
+    const id = queue.shift();
+    bfsOrder.push(id);
+    (childrenMap[id] || []).forEach(c => queue.push(c));
+  }
+  return { dfsOrder, bfsOrder };
+};
+const { dfsOrder: PUZZLE_DFS_ORDER, bfsOrder: PUZZLE_BFS_ORDER } = buildPuzzleOrders(puzzleTreeLayout.edgesOut);
+
+const puzzleHeuristic = (state) => {
+  let h = 0;
+  for (let v = 1; v <= 8; v++) {
+    if (state.indexOf(v) !== PUZZLE_GOAL.indexOf(v)) h++;
+  }
+  return h;
+};
+const puzzleStateKey = (s) => s.join(',');
+const isGoalState = (s) => puzzleStateKey(s) === puzzleStateKey(PUZZLE_GOAL);
+const TRAP_START = [2,8,3, 1,0,4, 7,6,5];
+const directionBetween = (a, b) => {
+  const bk = puzzleStateKey(b);
+  for (const dir of PUZZLE_DIRS) {
+    const next = puzzleApplyMove(a, dir);
+    if (next && puzzleStateKey(next) === bk) return dir.label;
+  }
+  return null;
+};
+
+/* ───────────────── A* 지도 데이터 ───────────────── */
+const heur = { 한비네집:19, 공원:16, 마트:16, 학교:11, 학원:4, 식당:5, 지아네집:0 };
+const graph = {
+  한비네집: [['공원',3], ['마트',5], ['학교',10]],
+  공원:     [['한비네집',3], ['학교',4], ['식당',10]],
+  마트:     [['한비네집',5], ['학교',6]],
+  학교:     [['한비네집',10], ['공원',4], ['식당',5], ['마트',6], ['학원',7]],
+  학원:     [['학교',7], ['식당',7]],
+  식당:     [['공원',10], ['학교',5], ['학원',7], ['지아네집',5]],
+  지아네집: [['식당',5]],
+};
+const OPTIMAL_COST = 17;
+
+const MAP_NODES = {
+  한비네집: { h: 19, color: '#f59e0b', icon: '🏠', isStart: true },
+  공원:     { h: 16, color: '#0284c7', icon: '🌳' },
+  마트:     { h: 16, color: '#059669', icon: '🛒' },
+  학교:     { h: 11, color: '#e11d48', icon: '🏫' },
+  식당:     { h: 5,  color: '#d97706', icon: '🍽️' },
+  학원:     { h: 4,  color: '#7c3aed', icon: '🎓' },
+  지아네집: { h: 0,  color: '#10b981', icon: '🏡', isGoal: true },
+};
+const MAP_EDGES = [
+  ['한비네집', '공원', 3], ['한비네집', '마트', 5], ['한비네집', '학교', 10],
+  ['공원', '학교', 4], ['공원', '식당', 10],
+  ['마트', '학교', 6], ['마트', '학원', 11],
+  ['학교', '식당', 5], ['학교', '학원', 7],
+  ['식당', '학원', 7], ['식당', '지아네집', 5],
+  ['학원', '지아네집', 4],
+];
+const MAP_COORDS = {
+  한비네집: { x: 130, y: 110 }, 공원: { x: 120, y: 410 }, 마트: { x: 380, y: 90 }, 학교: { x: 460, y: 270 },
+  식당: { x: 350, y: 450 }, 학원: { x: 750, y: 150 }, 지아네집: { x: 780, y: 430 },
+};
+const mapDijkstra = (start, goal) => {
+  const distances = {}, previous = {}, unvisited = new Set(Object.keys(MAP_NODES));
+  Object.keys(MAP_NODES).forEach(n => { distances[n] = Infinity; previous[n] = null; });
+  distances[start] = 0;
+  while (unvisited.size) {
+    let cur = null;
+    unvisited.forEach(n => { if (cur === null || distances[n] < distances[cur]) cur = n; });
+    if (cur === goal || distances[cur] === Infinity) break;
+    unvisited.delete(cur);
+    MAP_EDGES.forEach(([a, b, cost]) => {
+      let nb = null;
+      if (a === cur) nb = b; else if (b === cur) nb = a;
+      if (nb && unvisited.has(nb)) {
+        const alt = distances[cur] + cost;
+        if (alt < distances[nb]) { distances[nb] = alt; previous[nb] = cur; }
+      }
+    });
+  }
+  const path = []; let c = goal;
+  while (c) { path.unshift(c); c = previous[c]; }
+  return { path: path[0] === start ? path : [], cost: distances[goal] };
+};
+const mapEdgeInPath = (a, b, path) => {
+  for (let i = 0; i < path.length - 1; i++) {
+    if ((path[i] === a && path[i + 1] === b) || (path[i] === b && path[i + 1] === a)) return true;
+  }
+  return false;
+};
+
+/* ───────────────── 정보 이용 탐색 카드 ───────────────── */
+const heuristicCards = [
+  { num:'1', emoji:'⛰️', name:'언덕 등반 탐색', color:'orange',
+    desc:'지금 당장 눈앞에서 가장 좋아 보이는 방향으로만 이동해요.',
+    detail:'눈을 감고 발끝의 경사만 느끼며 산을 오르는 것과 같아요. 계산이 빠르지만, 진짜 정상이 아닌 작은 언덕(지역 최적해)에 갇힐 수 있어요.',
+    tip:'한번 정한 방향은 절대 되돌아가지 않아요! (그리디 방식)' },
+  { num:'2', emoji:'🧭', name:'최상 우선 탐색', color:'purple',
+    desc:'후보 중 평가 점수가 가장 좋은 곳을 골라 방문하고, 아니다 싶으면 되돌아가요.',
+    detail:'Open 리스트(후보 명단)에서 가장 점수가 좋은 곳을 꺼내 방문하고, Close 리스트(방문 완료)에 기록해서 같은 곳을 다시 가지 않아요.',
+    tip:'언덕 등반과 달리 길을 잘못 들면 되돌아갈 수 있어요!' },
+  { num:'3', emoji:'⭐', name:'A* 알고리즘', color:'amber',
+    desc:'지금까지 온 거리 + 앞으로 남을 것으로 예상하는 거리를 함께 고려해요.',
+    detail:'f(n) = g(n) + h(n) 공식으로 가장 효율적이고 정확한 길을 찾아요. 내비게이션, 게임 캐릭터 이동 등 실생활에 아주 많이 쓰여요.',
+    tip:'현재 가장 유명하고 정확한 경로 탐색 알고리즘이에요!' },
+];
+
+const quizData = [
+  { id:1, q:'인공지능에서 말하는 "탐색(Search)"이란 무엇일까요?',
+    opts:['그림판으로 그림을 그리는 것','목표(정답)를 찾기 위해 여러 경우를 체계적으로 살펴보는 과정','인터넷 검색창에 검색어를 입력하는 것','컴퓨터 전원을 끄는 것'],
+    ans:1, expl:'탐색은 수많은 갈림길(분기점) 속에서 상태 공간을 뒤져 정답을 찾아내는 체계적인 과정이에요.' },
+  { id:2, q:'다음 중 "맹목적 탐색(무정보 탐색)"에 해당하는 것은?',
+    opts:['A* 알고리즘','최상 우선 탐색','깊이 우선 탐색(DFS), 너비 우선 탐색(BFS)','언덕 등반 탐색'],
+    ans:2, expl:'맹목적 탐색은 사전 정보 없이 정해진 규칙에 따라 모든 상태를 탐색해요. DFS와 BFS가 대표적이에요.' },
+  { id:3, q:'깊이 우선 탐색(DFS)의 특징으로 옳은 것은?',
+    opts:['동일한 깊이를 모두 살펴본 뒤 다음 깊이로 넘어간다','한 방향으로 갈 수 있을 때까지 계속 들어간 뒤, 막히면 되돌아온다','항상 최단 경로를 보장한다','메모리를 가장 많이 사용한다'],
+    ans:1, expl:'DFS는 "한 우물만 판다"는 비유처럼, 한쪽 방향으로 끝까지 들어간 뒤 막히면 이전 갈림길로 되돌아와요.' },
+  { id:4, q:'너비 우선 탐색(BFS)의 가장 큰 장점은 무엇인가요?',
+    opts:['메모리를 적게 사용한다','항상 최단 경로를 보장한다','되돌아가지 않아 속도가 빠르다','휴리스틱이 필요 없다(오답 아님, 둘 다 필요없지만 장점은 아님)'],
+    ans:1, expl:'BFS는 같은 깊이를 먼저 모두 탐색하기 때문에, 목적지가 얕은 곳에 있다면 항상 최단 경로를 100% 찾아내요.' },
+  { id:5, q:'경험을 통해 얻은 지식이나 직감, 어림짐작으로 "목표까지 얼마나 가까운지" 알려주는 힌트를 무엇이라 하나요?',
+    opts:['알고리즘','휴리스틱(Heuristic)','네트워크','액추에이터'],
+    ans:1, expl:'휴리스틱은 완벽한 정답은 아니어도, 정답에 가까운 길을 빠르게 찾도록 도와주는 힌트예요.' },
+  { id:6, q:'A* 알고리즘의 평가 함수 f(n)은 무엇을 더한 값인가요?',
+    opts:['g(n): 지금까지 온 실제 거리 + h(n): 목표까지 남은 예상 거리','시작 시간 + 도착 시간','노드의 개수 + 간선의 개수','속도 + 방향'],
+    ans:0, expl:'f(n) = g(n) + h(n). 지금까지 걸어온 실제 거리와 목표까지 남은 예상 거리(휴리스틱)를 함께 고려해서 가장 효율적인 길을 찾아요.' },
+];
+
+/* ───────────────── 4-Queen 전체 트리 데이터 ───────────────── */
+const queenTreeData = {
+  children: [
+    { col:1, children: [
+      { col:2, valid:false },
+      { col:3, children: [ { col:2, valid:false }, { col:4, valid:false } ] },
+      { col:4, children: [
+        { col:2, children: [ { col:3, valid:false } ] },
+        { col:3, valid:false },
+      ]},
+    ]},
+    { col:2, children: [
+      { col:1, valid:false },
+      { col:3, valid:false },
+      { col:4, children: [
+        { col:1, children: [ { col:3, solution:true } ] },
+        { col:3, valid:false },
+      ]},
+    ]},
+    { col:3, children: [
+      { col:1, children: [
+        { col:2, valid:false },
+        { col:4, children: [ { col:2, solution:true } ] },
+      ]},
+      { col:2, valid:false },
+      { col:4, valid:false },
+    ]},
+    { col:4, children: [
+      { col:1, children: [
+        { col:2, valid:false },
+        { col:3, children: [ { col:2, valid:false } ] },
+      ]},
+      { col:2, children: [ { col:1, valid:false }, { col:3, valid:false } ] },
+      { col:3, valid:false },
+    ]},
+  ],
+};
+
+const QUEEN_BOARD = 50, QUEEN_ROWGAP = 118, QUEEN_WIDTH_UNIT = 66, QUEEN_TOP_MARGIN = 60;
+const QUEEN_BRANCH_COLORS = ['#ef4444', '#a855f7', '#7c3aed', '#3b82f6'];
+const buildQueenLayout = () => {
+  const nodesOut = []; const edgesOut = [];
+  let leafCounter = 0;
+  const walk = (node, depth, id, parentPath, parentBranch) => {
+    const myPath = node.col !== undefined ? [...parentPath, node.col] : parentPath;
+    const kids = node.children || [];
+    let x;
+    if (kids.length === 0) {
+      x = leafCounter; leafCounter += 1;
+    } else {
+      const xs = kids.map((k, i) => {
+        const childId = id + '-' + i;
+        const childBranch = depth === 0 ? (k.col - 1) : parentBranch;
+        edgesOut.push([id, childId, QUEEN_BRANCH_COLORS[childBranch]]);
+        return walk(k, depth + 1, childId, myPath, childBranch);
+      });
+      x = xs.reduce((a, b) => a + b, 0) / xs.length;
+    }
+    nodesOut.push({ id, col: node.col, valid: node.valid !== false, solution: !!node.solution, depth, x, path: myPath, isLeaf: kids.length === 0 });
+    return x;
+  };
+  walk(queenTreeData, 0, 'root', [], null);
+  const positions = {};
+  nodesOut.forEach(n => { positions[n.id] = { x: QUEEN_WIDTH_UNIT * (n.x + 1), y: QUEEN_TOP_MARGIN + n.depth * QUEEN_ROWGAP }; });
+  const totalWidth = QUEEN_WIDTH_UNIT * (leafCounter + 1) + 20;
+  const maxDepth = Math.max(...nodesOut.map(n => n.depth));
+  const totalHeight = QUEEN_TOP_MARGIN + maxDepth * QUEEN_ROWGAP + QUEEN_BOARD + 20;
+  return { nodesOut, edgesOut, positions, totalWidth, totalHeight };
+};
+const queenLayout = buildQueenLayout();
+
+/* HTML 이스케이프 (사용자 상태값을 안전하게 문자열로 넣기 위함 - 이 앱은 정적 데이터만 쓰므로 실질적 위험은 없음) */
+const esc = (s) => String(s);
+/* ═══════════════════════════════════════════
+   TreeVisualizer (DFS/BFS 공용) - mode: 'dfs' | 'bfs'
+   React의 useState를 지역 변수(클로저)로, useEffect를 재생 타이머로 대체.
+   탭을 벗어났다가 다시 들어오면(React 언마운트/마운트와 동일하게) 항상 초기 상태로 새로 시작.
+═══════════════════════════════════════════ */
+function mountTreeVisualizer(container, mode) {
+  const color = mode === 'dfs' ? 'blue' : 'green';
+  const c = getColor(color);
+
+  const st = {
+    treeSourceMode: 'default',
+    nodes: { ...treeNodes },
+    edges: [...defaultTreeEdges],
+    root: defaultRoot,
+    editMode: 'add',
+    pendingConnect: null,
+    idx: -1,
+    playing: false,
+    timer: null,
+  };
+
+  function stopTimer(){ if (st.timer){ clearInterval(st.timer); st.timer = null; } }
+
+  function computeSteps(){
+    const nodeIds = Object.keys(st.nodes);
+    const rawAdj = buildAdj(nodeIds, st.edges);
+    const adj = {};
+    nodeIds.forEach(id => {
+      const list = (rawAdj[id] || []).slice();
+      list.sort((a, b) => ((st.nodes[a] && st.nodes[a].x) || 0) - ((st.nodes[b] && st.nodes[b].x) || 0));
+      adj[id] = list;
+    });
+    return st.root ? (mode === 'dfs' ? computeDfsSteps(adj, st.root) : computeBfsSteps(adj, st.root)) : [];
+  }
+
+  function resetPlay(){ stopTimer(); st.playing = false; st.idx = -1; render(); }
+  function nextStep(){
+    stopTimer(); st.playing = false;
+    const steps = computeSteps();
+    st.idx = Math.min(st.idx + 1, steps.length - 1);
+    render();
+  }
+  function startPlaying(){
+    st.playing = true; render();
+    stopTimer();
+    st.timer = setInterval(() => {
+      const steps = computeSteps();
+      if (st.idx >= steps.length - 1) { stopTimer(); st.playing = false; render(); return; }
+      st.idx += 1;
+      render();
+    }, 900);
+  }
+
+  function switchToDefault(){
+    stopTimer();
+    st.treeSourceMode = 'default'; st.nodes = { ...treeNodes }; st.edges = [...defaultTreeEdges];
+    st.root = defaultRoot; st.pendingConnect = null; st.editMode = 'add';
+    st.playing = false; st.idx = -1;
+    render();
+  }
+  function switchToRandom(){
+    stopTimer();
+    const count = 7 + Math.floor(Math.random() * 4);
+    const rt = generateRandomTree(count);
+    const posObj = {}; rt.nodeIds.forEach(id => { posObj[id] = rt.positions[id]; });
+    st.treeSourceMode = 'random'; st.nodes = posObj; st.edges = rt.edges;
+    st.root = rt.root; st.pendingConnect = null; st.editMode = 'add';
+    st.playing = false; st.idx = -1;
+    render();
+  }
+  function switchToCustom(){
+    stopTimer();
+    st.treeSourceMode = 'custom'; st.nodes = {}; st.edges = [];
+    st.root = null; st.pendingConnect = null; st.editMode = 'add';
+    st.playing = false; st.idx = -1;
+    render();
+  }
+  function clearCustom(){
+    stopTimer();
+    st.nodes = {}; st.edges = []; st.root = null; st.pendingConnect = null;
+    st.playing = false; st.idx = -1;
+    render();
+  }
+  function autoArrange(){
+    const nodeIds = Object.keys(st.nodes);
+    st.nodes = arrangeTreeLayout(nodeIds, st.edges, st.root, st.nodes);
+    st.playing = false; st.idx = -1;
+    render();
+  }
+  function nextLabel(){
+    const n = Object.keys(st.nodes).length;
+    return n < 26 ? String.fromCharCode(65 + n) : ('N' + n);
+  }
+  function handleSvgClick(e, svgEl){
+    if (st.treeSourceMode !== 'custom' || st.editMode !== 'add') return;
+    const rect = svgEl.getBoundingClientRect();
+    const x = Math.max(30, Math.min(770, (e.clientX - rect.left) * (800 / rect.width)));
+    const y = Math.max(30, Math.min(390, (e.clientY - rect.top) * (420 / rect.height)));
+    const id = nextLabel();
+    const isFirst = Object.keys(st.nodes).length === 0;
+    st.nodes = { ...st.nodes, [id]: { x, y } };
+    if (isFirst) st.root = id;
+    render();
+  }
+  function handleNodeClick(name, e){
+    e.stopPropagation();
+    if (st.treeSourceMode !== 'custom') return;
+    if (st.editMode === 'start') { st.root = name; render(); return; }
+    if (st.editMode === 'connect') {
+      if (!st.pendingConnect) { st.pendingConnect = name; render(); return; }
+      if (st.pendingConnect === name) { st.pendingConnect = null; render(); return; }
+      const exists = st.edges.some(([a, b]) => (a === st.pendingConnect && b === name) || (a === name && b === st.pendingConnect));
+      if (exists) {
+        st.edges = st.edges.filter(([a, b]) => !((a === st.pendingConnect && b === name) || (a === name && b === st.pendingConnect)));
+      } else {
+        st.edges = [...st.edges, [st.pendingConnect, name]];
+      }
+      st.pendingConnect = null;
+      render();
+    }
+  }
+
+  function render(){
+    const nodeIds = Object.keys(st.nodes);
+    const steps = computeSteps();
+    const safeIdx = Math.min(st.idx, steps.length - 1);
+    const visited = new Set(steps.slice(0, safeIdx + 1).map(s => s.node));
+    const current = safeIdx >= 0 ? steps[safeIdx].node : null;
+    const aux = safeIdx >= 0 ? steps[safeIdx].aux : [];
+    const nodeYs = Object.values(st.nodes).map(p => p.y);
+    const vbHeight = nodeYs.length ? Math.max(420, Math.max(...nodeYs) + 70) : 420;
+    const orderSoFar = steps.slice(0, safeIdx + 1).map(s => s.node);
+
+    const editHint = st.editMode === 'add' ? '캔버스의 빈 곳을 클릭하면 새 노드가 추가돼요.'
+      : st.editMode === 'connect' ? (st.pendingConnect ? `"${st.pendingConnect}" 노드와 연결(또는 이미 연결되어 있으면 끊기)할 다른 노드를 클릭하세요.` : '연결할 첫 번째 노드를 클릭하세요. (이미 연결된 두 노드를 클릭하면 그 간선만 삭제돼요)')
+      : '탐색을 시작할 노드를 클릭해서 시작 노드로 지정하세요.';
+
+    let edgeLines = '';
+    st.edges.forEach(([a, b]) => {
+      if (st.nodes[a] && st.nodes[b]) {
+        edgeLines += `<line x1="${st.nodes[a].x}" y1="${st.nodes[a].y}" x2="${st.nodes[b].x}" y2="${st.nodes[b].y}" stroke="#cbd5e1" stroke-width="3"/>`;
+      }
+    });
+    let nodeCircles = '';
+    Object.entries(st.nodes).forEach(([name, pos]) => {
+      const isCurrent = name === current;
+      const isVisited = visited.has(name);
+      const isRoot = name === st.root;
+      const isPending = name === st.pendingConnect;
+      const fill = isCurrent ? c.solid : isVisited ? '#94a3b8' : isPending ? '#fde68a' : '#ffffff';
+      const stroke = isCurrent ? c.solid : isVisited ? '#64748b' : isPending ? '#d97706' : (isRoot ? '#4f46e5' : '#cbd5e1');
+      nodeCircles += `
+        <g data-node="${name}" class="${isCurrent ? 'pulse-glow' : ''}" style="${isCurrent ? `color:${c.solid};` : ''}cursor:${st.treeSourceMode === 'custom' ? 'pointer' : 'default'};">
+          <circle cx="${pos.x}" cy="${pos.y}" r="26" fill="${fill}" stroke="${stroke}" stroke-width="${isRoot ? 5 : 3}"/>
+          <text x="${pos.x}" y="${pos.y + 7}" text-anchor="middle" font-size="20" font-weight="bold" fill="${isCurrent || isVisited ? '#ffffff' : '#334155'}">${name}</text>
+          ${isRoot ? `<text x="${pos.x}" y="${pos.y - 34}" text-anchor="middle" font-size="16">🚩</text>` : ''}
+        </g>`;
+    });
+
+    container.innerHTML = `
+      <div class="${c.bg} border-2 ${c.border} rounded-xl p-5">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <span class="text-base font-bold text-gray-600 mr-1">🌳 트리 선택:</span>
+          <button data-act="default" class="px-3 py-1.5 rounded-lg font-bold text-base border-2 ${st.treeSourceMode === 'default' ? `${c.btn} text-white border-transparent` : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}">기본 트리</button>
+          <button data-act="random" class="px-3 py-1.5 rounded-lg font-bold text-base border-2 ${st.treeSourceMode === 'random' ? `${c.btn} text-white border-transparent` : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}">🎲 무작위 트리 생성</button>
+          <button data-act="custom" class="px-3 py-1.5 rounded-lg font-bold text-base border-2 ${st.treeSourceMode === 'custom' ? `${c.btn} text-white border-transparent` : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}">✏️ 내가 만들기</button>
+        </div>
+
+        ${st.treeSourceMode === 'custom' ? `
+          <div class="bg-white rounded-lg border border-gray-200 p-3 mb-3">
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <button data-mode="add" class="px-3 py-1 rounded-md font-bold text-base ${st.editMode === 'add' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}">🔵 노드 추가</button>
+              <button data-mode="connect" class="px-3 py-1 rounded-md font-bold text-base ${st.editMode === 'connect' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}">🔗 간선 연결</button>
+              <button data-mode="start" class="px-3 py-1 rounded-md font-bold text-base ${st.editMode === 'start' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-600'}">🚩 시작 노드 지정</button>
+              <button id="auto-arrange-btn" ${!st.root ? 'disabled' : ''} class="px-3 py-1 rounded-md font-bold text-base bg-teal-50 text-teal-700 border border-teal-300 hover:bg-teal-100 disabled:opacity-40">🧹 자동 정렬</button>
+              <button id="clear-custom-btn" class="px-3 py-1 rounded-md font-bold text-base bg-red-50 text-red-600 border border-red-200 hover:bg-red-100">🗑️ 모두 지우기</button>
+              <span class="ml-auto text-base font-bold text-gray-500">🚩 시작 노드: ${st.root || '없음'}</span>
+            </div>
+            <p class="text-base text-indigo-700 font-bold">👉 ${editHint}</p>
+            <p class="text-base text-gray-500 mt-1">💡 DFS는 항상 화면에서 왼쪽에 있는 노드부터 방문해요. 노드가 뒤죽박죽이면 🧹 자동 정렬을 눌러 깔끔하게 정리해보세요!</p>
+          </div>` : ''}
+
+        <div class="flex flex-wrap gap-2 mb-4">
+          <button id="tv-next-btn" ${steps.length === 0 ? 'disabled' : ''} class="${c.btn} text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm hover:opacity-90 disabled:opacity-40">▶ 한 단계씩</button>
+          <button id="tv-play-btn" ${(steps.length === 0 || st.idx >= steps.length - 1) ? 'disabled' : ''} class="bg-gray-700 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm hover:opacity-90 disabled:opacity-40">⏩ 자동 재생</button>
+          <button id="tv-reset-btn" class="bg-white border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-bold text-base hover:bg-gray-50">🔄 처음부터</button>
+        </div>
+
+        <div class="grid md:grid-cols-3 gap-4">
+          <div class="md:col-span-2 bg-white rounded-lg border border-gray-200 p-2 overflow-auto" style="max-height:480px">
+            <svg id="tv-svg" viewBox="0 0 800 ${vbHeight}" class="w-full" style="min-width:560px;display:block;cursor:${st.treeSourceMode === 'custom' && st.editMode === 'add' ? 'copy' : 'default'};">
+              ${edgeLines}
+              ${nodeCircles}
+            </svg>
+            ${st.treeSourceMode === 'custom' && nodeIds.length === 0 ? `<p class="text-center text-base text-gray-400 py-6">캔버스를 클릭해서 첫 번째 노드를 만들어보세요! (첫 노드는 자동으로 시작 노드가 돼요)</p>` : ''}
+          </div>
+
+          <div class="space-y-3">
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+              <p class="text-base font-bold text-gray-700 mb-2">${mode === 'dfs' ? '📚 재귀 호출 경로 (스택)' : '🧾 대기 목록 (큐)'}</p>
+              ${steps.length === 0 ? `<p class="text-base text-gray-400">트리와 시작 노드를 먼저 준비하세요</p>` : ''}
+              ${steps.length > 0 && aux.length === 0 && st.idx < 0 ? `<p class="text-base text-gray-400">버튼을 눌러 시작하세요</p>` : ''}
+              ${steps.length > 0 && aux.length === 0 && st.idx >= 0 ? `<p class="text-base text-gray-400">비어 있어요 (탐색 종료)</p>` : ''}
+              <div class="${mode === 'dfs' ? 'flex flex-col-reverse gap-1' : 'flex flex-wrap gap-1'}">
+                ${aux.map(n => `<div class="${c.badge} text-center font-bold rounded-md px-2 py-1 text-base">${n}</div>`).join('')}
+              </div>
+            </div>
+            <div class="bg-white rounded-lg border border-gray-200 p-4">
+              <p class="text-base font-bold text-gray-700 mb-2">✅ 방문 순서</p>
+              <p class="text-base font-bold ${c.accent} leading-relaxed break-words">${orderSoFar.length ? orderSoFar.join(' → ') : '아직 시작 전이에요'}</p>
+              ${st.treeSourceMode === 'custom' && nodeIds.length > steps.length ? `<p class="text-base text-orange-500 mt-2">⚠️ 시작 노드에서 연결되지 않은 노드는 방문되지 않아요!</p>` : ''}
+            </div>
+          </div>
+        </div>
+      </div>`;
+
+    // 이벤트 바인딩
+    container.querySelector('[data-act="default"]').onclick = switchToDefault;
+    container.querySelector('[data-act="random"]').onclick = switchToRandom;
+    container.querySelector('[data-act="custom"]').onclick = switchToCustom;
+    const autoBtn = container.querySelector('#auto-arrange-btn'); if (autoBtn) autoBtn.onclick = autoArrange;
+    const clearBtn = container.querySelector('#clear-custom-btn'); if (clearBtn) clearBtn.onclick = clearCustom;
+    container.querySelectorAll('[data-mode]').forEach(btn => {
+      btn.onclick = () => { st.editMode = btn.dataset.mode; st.pendingConnect = null; render(); };
+    });
+    container.querySelector('#tv-next-btn').onclick = nextStep;
+    container.querySelector('#tv-play-btn').onclick = startPlaying;
+    container.querySelector('#tv-reset-btn').onclick = resetPlay;
+    const svgEl = container.querySelector('#tv-svg');
+    svgEl.onclick = (e) => handleSvgClick(e, svgEl);
+    container.querySelectorAll('[data-node]').forEach(g => {
+      g.onclick = (e) => handleNodeClick(g.dataset.node, e);
+    });
+  }
+
+  render();
+  return { stop: stopTimer };
+}
+/* ═══════════════════════════════════════════
+   강 건너기 스테퍼
+═══════════════════════════════════════════ */
+function mountRiverCrossing(container){
+  let i = 0;
+  function render(){
+    const st = riverStates[i];
+    container.innerHTML = `
+      <div class="bg-white rounded-xl border-2 border-blue-200 p-5">
+        <p class="text-center font-bold text-blue-700 text-lg mb-3">${st.label}</p>
+        <div class="flex items-center justify-center gap-4">
+          <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 w-40 text-center">
+            <p class="text-base font-bold text-gray-500 mb-2">왼쪽 강가</p>
+            <div class="text-3xl leading-relaxed">${st.left.map(a => emoji[a]).join(' ') || '—'}</div>
+          </div>
+          <div class="text-4xl">🌊🚣🌊</div>
+          <div class="bg-teal-50 border-2 border-teal-200 rounded-xl p-4 w-40 text-center">
+            <p class="text-base font-bold text-gray-500 mb-2">오른쪽 강가</p>
+            <div class="text-3xl leading-relaxed">${st.right.map(a => emoji[a]).join(' ') || '—'}</div>
+          </div>
+        </div>
+        <div class="flex justify-center gap-2 mt-5">
+          <button id="rc-prev" ${i === 0 ? 'disabled' : ''} class="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg font-bold text-base disabled:opacity-40">◀ 이전</button>
+          <span class="px-3 py-2 text-base font-bold text-gray-500">${i + 1} / ${riverStates.length}</span>
+          <button id="rc-next" ${i === riverStates.length - 1 ? 'disabled' : ''} class="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-base disabled:opacity-40">다음 ▶</button>
+        </div>
+        <p class="text-center text-base text-gray-500 mt-3">⚠️ 규칙: 늑대와 양만 남으면 늑대가 양을 먹고, 양과 양배추만 남으면 양이 양배추를 먹어요!</p>
+      </div>`;
+    container.querySelector('#rc-prev').onclick = () => { i = Math.max(0, i - 1); render(); };
+    container.querySelector('#rc-next').onclick = () => { i = Math.min(riverStates.length - 1, i + 1); render(); };
+  }
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   A* 미니 게임
+═══════════════════════════════════════════ */
+function mountAStarGame(container){
+  const START = '한비네집', GOAL = '지아네집';
+  let path = [START], totalG = 0, finished = false;
+
+  function render(){
+    const current = path[path.length - 1];
+    const visitedSet = new Set(path);
+    const candidates = (graph[current] || [])
+      .filter(([n]) => !visitedSet.has(n))
+      .map(([n, w]) => ({ name:n, g: totalG + w, h: heur[n], f: totalG + w + heur[n] }));
+
+    container.innerHTML = `
+      <div class="bg-white rounded-xl border-2 border-amber-300 p-5">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <p class="text-base text-gray-500">현재 위치</p>
+            <p class="text-xl font-bold text-amber-700">🚩 ${current}</p>
+          </div>
+          <div class="text-right">
+            <p class="text-base text-gray-500">지금까지 이동 거리 g(n)</p>
+            <p class="text-xl font-bold text-gray-800">${totalG}</p>
+          </div>
+        </div>
+        <div class="bg-amber-50 rounded-lg p-3 mb-4">
+          <p class="text-base font-bold text-amber-800 mb-1">🧭 지나온 경로</p>
+          <p class="text-base font-bold text-gray-700">${path.join(' → ')}</p>
+        </div>
+        ${!finished ? `
+          <div>
+            <p class="text-base font-bold text-gray-700 mb-2">👇 다음 목적지를 골라보세요 (f(n)이 가장 작은 곳이 유리해요!)</p>
+            <div class="grid sm:grid-cols-2 gap-3">
+              ${candidates.map(cand => `
+                <button data-cand="${cand.name}" class="text-left bg-white border-2 border-amber-200 hover:border-amber-500 hover:bg-amber-50 rounded-lg p-3 transition-all">
+                  <p class="font-bold text-gray-800 text-base mb-1">📍 ${cand.name}</p>
+                  <p class="text-base text-gray-600">g=${cand.g} + h=${cand.h} = <span class="font-bold text-amber-700">f=${cand.f}</span></p>
+                </button>`).join('')}
+              ${candidates.length === 0 ? `<p class="text-base text-gray-400">더 이상 갈 곳이 없어요. 처음부터 다시 해보세요!</p>` : ''}
+            </div>
+          </div>` : (() => {
+            const isOptimal = totalG === OPTIMAL_COST;
+            return `
+            <div class="pop-in text-center p-5 rounded-xl border-2 ${isOptimal ? 'bg-green-50 border-green-300' : 'bg-orange-50 border-orange-300'}">
+              <p class="text-4xl mb-2">${isOptimal ? '🏆' : '🤔'}</p>
+              <p class="text-xl font-bold mb-1" style="color:${isOptimal ? '#15803d' : '#c2410c'}">
+                ${isOptimal ? '정답! 가장 짧은 최적 경로를 찾았어요!' : `지아네 집 도착! 총 이동 거리: ${totalG}`}
+              </p>
+              <p class="text-base text-gray-600">
+                ${isOptimal ? 'A* 알고리즘처럼 f(n)이 가장 작은 길을 잘 선택했어요 👍' : `가장 짧은 거리는 ${OPTIMAL_COST}이에요. f(n) 점수를 비교해서 다시 도전해 보세요!`}
+              </p>
+            </div>`;
+          })()}
+        <div class="text-center mt-4">
+          <button id="ag-restart" class="bg-gray-700 text-white px-5 py-2 rounded-lg font-bold text-base hover:bg-gray-800">🔄 처음부터 다시하기</button>
+        </div>
+      </div>`;
+
+    container.querySelectorAll('[data-cand]').forEach(btn => {
+      btn.onclick = () => {
+        const cand = candidates.find(c => c.name === btn.dataset.cand);
+        path = [...path, cand.name];
+        totalG = cand.g;
+        if (cand.name === GOAL) finished = true;
+        render();
+      };
+    });
+    container.querySelector('#ag-restart').onclick = () => { path = [START]; totalG = 0; finished = false; render(); };
+  }
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   A* 일러스트 약도 뷰
+═══════════════════════════════════════════ */
+function mountAStarIllustratedMap(container){
+  let start = '한비네집', goal = '지아네집', result = null;
+
+  function render(){
+    const path = result ? result.path : [];
+    const nodeOptions = Object.keys(MAP_NODES).map(n => `<option value="${n}" ${start === n ? 'selected' : ''}>${n}</option>`).join('');
+    const nodeOptionsGoal = Object.keys(MAP_NODES).map(n => `<option value="${n}" ${goal === n ? 'selected' : ''}>${n}</option>`).join('');
+
+    let edgesSvg = '';
+    MAP_EDGES.forEach(([a, b, cost]) => {
+      const p1 = MAP_COORDS[a], p2 = MAP_COORDS[b];
+      const inPath = mapEdgeInPath(a, b, path);
+      const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+      edgesSvg += `
+        <g>
+          <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="${inPath ? '#f59e0b' : '#bbf7d0'}" stroke-width="${inPath ? 8 : 12}" stroke-linecap="round"/>
+          ${!inPath ? `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#ffffff" stroke-width="6"/>` : ''}
+          <g transform="translate(${mx},${my})">
+            <rect x="-14" y="-12" width="28" height="24" rx="12" fill="${inPath ? '#f59e0b' : '#1e293b'}" stroke="#fff" stroke-width="2"/>
+            <text x="0" y="4" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">${cost}</text>
+          </g>
+        </g>`;
+    });
+
+    let nodesSvg = '';
+    Object.entries(MAP_NODES).forEach(([name, node]) => {
+      const pos = MAP_COORDS[name];
+      const inPath = path.includes(name);
+      const fill = node.isStart ? '#f59e0b' : node.isGoal ? '#10b981' : node.color;
+      const labelW = name.length * 22 + 46;
+      nodesSvg += `
+        <g data-mapnode="${name}" transform="translate(${pos.x}, ${pos.y})" style="cursor:pointer;">
+          ${inPath ? `<circle r="34" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" class="node-pulse-anim"/>` : ''}
+          <circle r="25" fill="${fill}" stroke="#fff" stroke-width="3"/>
+          <text y="5" text-anchor="middle" fill="#fff" font-size="14" font-weight="800">${node.h}</text>
+          <g transform="translate(0, 44)">
+            <rect x="${-labelW / 2}" y="-15" width="${labelW}" height="30" rx="15" fill="${inPath ? '#1e293b' : '#ffffff'}" stroke="${inPath ? '#f59e0b' : '#cbd5e1'}" stroke-width="${inPath ? 2 : 1}"/>
+            <text y="4" text-anchor="middle" font-size="13" font-weight="700" fill="${inPath ? '#fff' : '#0f172a'}">${node.icon} ${name}</text>
+          </g>
+        </g>`;
+    });
+
+    let resultPanel = '';
+    if (result) {
+      if (result.path.length > 0) {
+        resultPanel = `
+          <div class="bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-xl p-4">
+            <p class="text-sm text-amber-400 font-bold uppercase tracking-wider mb-1">탐색된 최단 경로</p>
+            <p class="font-extrabold text-base text-yellow-300 mb-3">${result.path.join(' ➔ ')}</p>
+            <div class="grid grid-cols-2 gap-2 text-sm mb-3">
+              <div class="bg-slate-800/50 p-2.5 rounded-lg">
+                <span class="text-slate-400 block mb-0.5">실제 이동거리 g(n)</span>
+                <span class="text-lg font-bold text-emerald-400">${result.cost}</span>
+              </div>
+              <div class="bg-slate-800/50 p-2.5 rounded-lg">
+                <span class="text-slate-400 block mb-0.5">목적지 h(n)</span>
+                <span class="text-lg font-bold text-sky-400">${MAP_NODES[goal].h}</span>
+              </div>
+            </div>
+            <p class="text-sm text-slate-300 mb-1"><b>A* 탐색 비용 계산식:</b></p>
+            <code class="block bg-black/40 p-2 rounded text-amber-300 text-sm">f(n) = g(n) + h(n) = ${result.cost} + ${MAP_NODES[goal].h} = ${result.cost + MAP_NODES[goal].h}</code>
+          </div>`;
+      } else {
+        resultPanel = `<div class="bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-xl p-4"><p class="text-rose-400 text-sm">경로를 찾을 수 없어요.</p></div>`;
+      }
+    }
+
+    const heurRows = Object.entries(MAP_NODES).map(([name, node]) => `
+      <tr class="hover:bg-gray-50">
+        <td class="py-2 px-3 flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full inline-block" style="background:${node.isStart ? '#f59e0b' : node.isGoal ? '#10b981' : node.color}"></span>
+          <span class="font-semibold text-gray-800">${name}</span>
+          ${node.isStart ? `<span class="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">출발</span>` : ''}
+          ${node.isGoal ? `<span class="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">목적지</span>` : ''}
+        </td>
+        <td class="py-2 px-3 text-right font-extrabold text-gray-900">${node.h}</td>
+      </tr>`).join('');
+
+    container.innerHTML = `
+      <div class="bg-white rounded-2xl border-2 border-emerald-200 p-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+          <p class="font-bold text-emerald-900 flex items-center gap-2">🗺️ 일러스트 약도로 보기</p>
+          <div class="flex items-center gap-2 flex-wrap text-base">
+            <label class="text-gray-500 font-bold">출발</label>
+            <select id="astar-start-select" class="border border-gray-300 rounded-lg px-2 py-1 font-bold">${nodeOptions}</select>
+            <span>➔</span>
+            <label class="text-gray-500 font-bold">도착</label>
+            <select id="astar-goal-select" class="border border-gray-300 rounded-lg px-2 py-1 font-bold">${nodeOptionsGoal}</select>
+            <button id="astar-calc-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1.5 rounded-lg">최단 경로 탐색</button>
+            <button id="astar-reset-btn" class="bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold px-3 py-1.5 rounded-lg">초기화</button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+          <div class="lg:col-span-8">
+            <div class="w-full rounded-xl border border-emerald-100 overflow-hidden" style="background:#eef7ee">
+              <svg viewBox="0 0 900 520" class="w-full" style="max-height:480px">
+                <g opacity="0.25"><circle cx="190" cy="220" r="14" fill="#15803d"/><circle cx="208" cy="215" r="18" fill="#16a34a"/><circle cx="200" cy="228" r="12" fill="#22c55e"/></g>
+                <g opacity="0.25"><circle cx="570" cy="350" r="14" fill="#15803d"/><circle cx="588" cy="345" r="18" fill="#16a34a"/><circle cx="580" cy="358" r="12" fill="#22c55e"/></g>
+                <g opacity="0.25"><rect x="585" y="165" width="30" height="30" fill="#94a3b8" rx="3"/><rect x="605" y="155" width="20" height="40" fill="#cbd5e1" rx="3"/></g>
+                ${edgesSvg}
+                ${nodesSvg}
+              </svg>
+            </div>
+            <div class="flex flex-wrap items-center gap-4 text-base text-gray-600 mt-3 pt-3 border-t border-gray-100">
+              <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full inline-block" style="background:#f59e0b"></span>출발지</span>
+              <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full inline-block" style="background:#10b981"></span>목적지</span>
+              <span class="flex items-center gap-1.5"><span class="w-3.5 h-3.5 rounded-full inline-block" style="background:#0284c7"></span>일반 장소</span>
+              <span class="text-gray-400">노드를 클릭하면 그 장소가 도착지로 바로 설정돼요.</span>
+            </div>
+          </div>
+          <div class="lg:col-span-4 space-y-4">
+            <div class="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+              <div class="flex items-center justify-between mb-3">
+                <p class="font-bold text-gray-800 flex items-center gap-1.5">📏 '휴리스틱' 예상 거리표</p>
+                <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">h(n) 값</span>
+              </div>
+              <p class="text-xs text-gray-500 mb-3">목적지까지 남은 직선 거리예요.</p>
+              <div class="overflow-hidden border border-gray-200 rounded-lg">
+                <table class="w-full text-sm text-left">
+                  <thead class="bg-slate-800 text-white text-xs uppercase font-semibold">
+                    <tr><th class="py-2 px-3">위치 (장소)</th><th class="py-2 px-3 text-right">남은 거리 h(n)</th></tr>
+                  </thead>
+                  <tbody class="divide-y divide-gray-200 bg-white">${heurRows}</tbody>
+                </table>
+              </div>
+            </div>
+            ${resultPanel}
+          </div>
+        </div>
+      </div>`;
+
+    container.querySelector('#astar-start-select').onchange = (e) => { start = e.target.value; render(); };
+    container.querySelector('#astar-goal-select').onchange = (e) => { goal = e.target.value; render(); };
+    container.querySelector('#astar-calc-btn').onclick = () => { result = mapDijkstra(start, goal); render(); };
+    container.querySelector('#astar-reset-btn').onclick = () => { start = '한비네집'; goal = '지아네집'; result = null; render(); };
+    container.querySelectorAll('[data-mapnode]').forEach(g => {
+      g.onclick = () => { goal = g.dataset.mapnode; render(); };
+    });
+  }
+  render();
+}
+/* ═══════════════════════════════════════════
+   예제 그림: 그래프(Graph)
+═══════════════════════════════════════════ */
+function graphExampleSvgHtml(){
+  const pts = { P:{x:120,y:60}, Q:{x:290,y:40}, R:{x:430,y:110}, S:{x:360,y:220}, T:{x:190,y:230}, U:{x:70,y:150} };
+  const es = [['P','Q'],['Q','R'],['R','S'],['S','T'],['T','U'],['U','P'],['P','S'],['Q','T']];
+  const lines = es.map(([a,b]) => `<line x1="${pts[a].x}" y1="${pts[a].y}" x2="${pts[b].x}" y2="${pts[b].y}" stroke="#93c5fd" stroke-width="3"/>`).join('');
+  const circles = Object.entries(pts).map(([name,p]) => `
+    <g><circle cx="${p.x}" cy="${p.y}" r="20" fill="#2563eb" stroke="#1e40af" stroke-width="2"/>
+    <text x="${p.x}" y="${p.y + 6}" text-anchor="middle" font-size="16" font-weight="bold" fill="#fff">${name}</text></g>`).join('');
+  return `
+    <div class="bg-white rounded-lg border border-blue-200 p-3 mt-3">
+      <svg viewBox="0 0 500 270" class="w-full" style="max-height:220px">${lines}${circles}</svg>
+      <p class="text-center text-base text-gray-500 mt-1">💡 점(노드)과 선(간선)으로 자유롭게 연결돼요. 한 도시에서 다른 도시로 가는 길이 여러 개 있을 수도 있어요.</p>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   예제 그림: 트리(Tree)
+═══════════════════════════════════════════ */
+function treeExampleSvgHtml(){
+  const pts = { A:{x:300,y:35}, B:{x:180,y:110}, C:{x:420,y:110}, D:{x:120,y:190}, E:{x:240,y:190}, F:{x:360,y:190}, G:{x:480,y:190} };
+  const es = [['A','B'],['A','C'],['B','D'],['B','E'],['C','F'],['C','G']];
+  const lines = es.map(([a,b]) => `<line x1="${pts[a].x}" y1="${pts[a].y}" x2="${pts[b].x}" y2="${pts[b].y}" stroke="#86efac" stroke-width="3"/>`).join('');
+  const circles = Object.entries(pts).map(([name,p]) => `
+    <g><circle cx="${p.x}" cy="${p.y}" r="20" fill="#16a34a" stroke="#15803d" stroke-width="2"/>
+    <text x="${p.x}" y="${p.y + 6}" text-anchor="middle" font-size="16" font-weight="bold" fill="#fff">${name}</text></g>`).join('');
+  return `
+    <div class="bg-white rounded-lg border border-green-200 p-3 mt-3">
+      <svg viewBox="0 0 600 260" class="w-full" style="max-height:220px">
+        ${lines}
+        <line x1="150" y1="230" x2="185" y2="150" stroke="#16a34a" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <text x="80" y="245" font-size="14" font-weight="bold" fill="#16a34a">간선(Edge)</text>
+        <line x1="500" y1="230" x2="482" y2="205" stroke="#15803d" stroke-width="1.5" stroke-dasharray="3,3"/>
+        <text x="430" y="248" font-size="14" font-weight="bold" fill="#15803d">노드(Node)</text>
+        ${circles}
+      </svg>
+      <p class="text-center text-base text-gray-500 mt-1">💡 뿌리(A)에서 가지가 뻗어나가요. A에서 D로 가는 길은 A→B→D 단 하나뿐이에요.</p>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   예제 그림: 상태 공간 트리 vs 탐색 트리
+═══════════════════════════════════════════ */
+function stateVsSearchTreeSvgHtml(){
+  const grey = '#cbd5e1', greyStroke = '#94a3b8', blue = '#4f46e5';
+  const nodes = [
+    {id:'g1', x:150, y:110, c:grey}, {id:'g2', x:100, y:190, c:grey}, {id:'g3', x:200, y:190, c:grey},
+    {id:'g4', x:300, y:110, c:grey}, {id:'g5', x:250, y:190, c:grey}, {id:'g6', x:350, y:190, c:grey},
+    {id:'g7', x:520, y:190, c:grey}, {id:'g8', x:640, y:190, c:grey},
+    {id:'root', x:400, y:35, c:blue, big:true},
+    {id:'b1', x:480, y:110, c:blue, big:true},
+    {id:'b2', x:580, y:110, c:blue, big:true},
+    {id:'b3', x:610, y:265, c:blue, big:true},
+    {id:'goal', x:610, y:335, c:'#d97706', goal:true},
+  ];
+  const greyEdges = [['root','g1'],['g1','g2'],['g1','g3'],['root','g4'],['g4','g5'],['g4','g6'],['b1','g7'],['b2','g8']];
+  const blueEdges = [['root','b1'],['root','b2'],['b2','b3'],['b3','goal']];
+  const pos = {}; nodes.forEach(n => { pos[n.id] = n; });
+  const greyLines = greyEdges.map(([a,b]) => `<line x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}" stroke="${greyStroke}" stroke-width="2" stroke-dasharray="4,3"/>`).join('');
+  const blueLines = blueEdges.map(([a,b]) => `<line x1="${pos[a].x}" y1="${pos[a].y}" x2="${pos[b].x}" y2="${pos[b].y}" stroke="${blue}" stroke-width="4"/>`).join('');
+  const circles = nodes.map(n => `
+    <g><circle cx="${n.x}" cy="${n.y}" r="${n.big ? 15 : (n.goal ? 16 : 10)}" fill="${n.c}" stroke="${n.goal ? '#b45309' : 'none'}" stroke-width="${n.goal ? 3 : 0}" class="${n.goal ? 'pulse-glow' : ''}"/>
+    ${n.goal ? `<text x="${n.x}" y="${n.y + 5}" text-anchor="middle" font-size="14">🎯</text>` : ''}</g>`).join('');
+  return `
+    <div class="bg-white rounded-lg border border-indigo-200 p-3 mt-3">
+      <svg viewBox="0 0 700 380" class="w-full" style="max-height:320px">${greyLines}${blueLines}${circles}</svg>
+      <div class="flex flex-wrap gap-4 justify-center text-base mt-1">
+        <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full bg-gray-300"></span> 상태 공간 트리 (일어날 수 있는 모든 상태)</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-3 h-3 rounded-full bg-indigo-600"></span> 탐색 트리 (실제로 방문한 경로)</span>
+      </div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   4x4 미니 체스판
+═══════════════════════════════════════════ */
+function queenMiniBoardHtml(path, invalid, solution){
+  const cell = QUEEN_BOARD / 4;
+  const borderClass = solution ? 'border-4 border-amber-500 ring-4 ring-amber-300'
+    : invalid ? 'border-2 border-red-400' : 'border-2 border-slate-300';
+  let cells = '';
+  for (let i = 0; i < 16; i++){
+    const r = Math.floor(i / 4), c = i % 4;
+    const hasQueen = path[r] !== undefined && (path[r] - 1) === c;
+    const dark = (r + c) % 2 === 1;
+    const bg = invalid ? (dark ? '#fecaca' : '#fee2e2') : (dark ? '#cbd5e1' : '#f1f5f9');
+    cells += `<div style="width:${cell}px;height:${cell}px;background-color:${bg}" class="flex items-center justify-center">
+      ${hasQueen ? `<span style="font-size:${cell * 0.75}px;color:${invalid ? '#b91c1c' : '#334155'}">♜</span>` : ''}</div>`;
+  }
+  return `<div class="grid grid-cols-4 rounded-md overflow-hidden ${borderClass} ${solution ? 'shadow-lg shadow-amber-300 pulse-glow text-amber-500' : ''}" style="width:${QUEEN_BOARD}px;height:${QUEEN_BOARD}px">${cells}</div>`;
+}
+
+/* ═══════════════════════════════════════════
+   4-Queen 전체 트리
+═══════════════════════════════════════════ */
+function queenFullTreeSvgHtml(){
+  const { nodesOut, edgesOut, positions, totalWidth, totalHeight } = queenLayout;
+  const rootPos = positions['root'];
+  const solutionNodes = nodesOut.filter(n => n.solution);
+
+  const rootLabel = `<div class="absolute bg-emerald-500 text-white text-xs font-bold px-2 py-1 rounded" style="left:${rootPos.x - QUEEN_BOARD / 2}px;top:${rootPos.y - QUEEN_BOARD / 2 - 26}px">초기 상태</div>`;
+  const solLabels = solutionNodes.map(n => `<div class="absolute bg-amber-500 text-white text-xs font-bold px-2 py-1 rounded whitespace-nowrap" style="left:${positions[n.id].x - 26}px;top:${positions[n.id].y - QUEEN_BOARD / 2 - 26}px">⭐ 목표 상태</div>`).join('');
+
+  const polylines = edgesOut.map(([a, b, color]) => {
+    const pa = positions[a], pb = positions[b];
+    const topA = pa.y + QUEEN_BOARD / 2, botB = pb.y - QUEEN_BOARD / 2;
+    const midY = (topA + botB) / 2;
+    return `<polyline points="${pa.x},${topA} ${pa.x},${midY} ${pb.x},${midY} ${pb.x},${botB}" fill="none" stroke="${color}" stroke-width="2.5"/>`;
+  }).join('');
+
+  const boards = nodesOut.map(n => {
+    const p = positions[n.id];
+    return `<div class="absolute" style="left:${p.x - QUEEN_BOARD / 2}px;top:${p.y - QUEEN_BOARD / 2}px">${queenMiniBoardHtml(n.path, n.valid === false, n.solution)}</div>`;
+  }).join('');
+
+  return `
+    <div class="bg-white rounded-lg border-2 border-amber-300 p-4 mt-3 overflow-x-auto">
+      <div style="position:relative;width:${totalWidth}px;height:${totalHeight + 34}px">
+        ${rootLabel}
+        ${solLabels}
+        <svg width="${totalWidth}" height="${totalHeight}" style="position:absolute;top:0;left:0;pointer-events:none">${polylines}</svg>
+        ${boards}
+      </div>
+      <div class="flex flex-wrap gap-4 justify-center text-base mt-3 border-t border-gray-100 pt-3">
+        <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded border-2 border-red-400 bg-red-100"></span> 서로 공격해서 실패 (가지치기)</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded border-2 border-amber-500 bg-amber-100"></span> ⭐ 정답 (목표 상태)</span>
+        <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded" style="background-color:#a855f7"></span> 같은 색 선 = 같은 첫 수(행1)에서 뻗어나간 가지</span>
+      </div>
+    </div>`;
+}
+/* ═══════════════════════════════════════════
+   8-퍼즐 테마
+═══════════════════════════════════════════ */
+const PUZZLE_THEME = {
+  indigo: { border:'border-indigo-500', shadow:'shadow-indigo-200', stroke:'#818cf8', boxBorder:'border-indigo-300', text:'text-indigo-600', badge:'bg-emerald-500', bg:'bg-indigo-50', bgBorder:'border-indigo-200', title:'text-indigo-900' },
+  green:  { border:'border-green-500',  shadow:'shadow-green-200',  stroke:'#4ade80', boxBorder:'border-green-300',  text:'text-green-600',  badge:'bg-emerald-500', bg:'bg-green-50',  bgBorder:'border-green-200',  title:'text-green-900' },
+  orange: { border:'border-orange-500', shadow:'shadow-orange-200', stroke:'#fb923c', boxBorder:'border-orange-300', text:'text-orange-600', badge:'bg-emerald-500', bg:'bg-orange-50', bgBorder:'border-orange-200', title:'text-orange-900' },
+  teal:   { border:'border-teal-500',   shadow:'shadow-teal-200',   stroke:'#2dd4bf', boxBorder:'border-teal-300',   text:'text-teal-600',   badge:'bg-emerald-500', bg:'bg-teal-50',   bgBorder:'border-teal-200',   title:'text-teal-900' },
+  amber:  { border:'border-amber-500',  shadow:'shadow-amber-200',  stroke:'#fbbf24', boxBorder:'border-amber-300',  text:'text-amber-600',  badge:'bg-emerald-500', bg:'bg-amber-50',  bgBorder:'border-amber-200',  title:'text-amber-900' },
+};
+
+function puzzleMiniBoardHtml(state, size, highlight, goal, theme = 'indigo'){
+  const t = PUZZLE_THEME[theme];
+  const cell = size / 3;
+  const borderClass = goal ? 'border-4 border-amber-500 ring-4 ring-amber-300'
+    : highlight ? `border-2 ${t.border} shadow-lg ${t.shadow}` : 'border-2 border-slate-300';
+  const cells = state.map(v => `
+    <div style="width:${cell}px;height:${cell}px;font-size:${cell * 0.5}px" class="flex items-center justify-center font-bold ${v === 0 ? 'bg-slate-100' : 'bg-blue-600 text-white'}">
+      ${v !== 0 ? v : ''}
+    </div>`).join('');
+  return `<div class="grid grid-cols-3 rounded-md overflow-hidden divide-x divide-y divide-black ${borderClass} ${goal ? 'shadow-lg shadow-amber-300 pulse-glow text-amber-500' : ''}" style="width:${size}px;height:${size}px">${cells}</div>`;
+}
+
+function puzzleProblemIntroHtml(theme = 'indigo'){
+  const t = PUZZLE_THEME[theme];
+  return `
+    <div class="${t.bg} border-2 ${t.bgBorder} rounded-xl p-5">
+      <p class="font-bold ${t.title} mb-3">📋 문제: 아래 초기 상태에서 시작해서 목표 상태로 만들어보세요!</p>
+      <div class="flex flex-wrap items-center justify-center gap-6">
+        <div class="text-center">
+          <span class="inline-block bg-emerald-500 text-white text-sm font-bold px-3 py-1 rounded-full mb-2">초기 상태</span>
+          ${puzzleMiniBoardHtml(PUZZLE_INITIAL, 110, false, false, theme)}
+        </div>
+        <div class="text-4xl ${t.text}">➡️</div>
+        <div class="text-center">
+          <span class="inline-block bg-amber-500 text-white text-sm font-bold px-3 py-1 rounded-full mb-2">목표 상태</span>
+          ${puzzleMiniBoardHtml(PUZZLE_GOAL, 110, false, false, theme)}
+        </div>
+      </div>
+      <p class="text-center text-base text-gray-600 mt-3">
+        빈 칸을 <span class="font-bold ${t.text}">좌 → 우 → 상 → 하</span> 순서로 하나씩 옮겨보면서, 목표 상태가 나올 때까지 경우의 수를 탐색해요.
+      </p>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   8-퍼즐 탐색 트리 (DFS/BFS) - 재생 버튼 있음
+═══════════════════════════════════════════ */
+function mountPuzzleTreeSvg(container, theme = 'indigo', mode = 'dfs'){
+  const t = PUZZLE_THEME[theme];
+  const { nodesOut, edgesOut, positions, totalWidth, totalHeight, BOARD } = puzzleTreeLayout;
+  const goalNode = nodesOut.find(n => n.isGoal);
+  const order = mode === 'dfs' ? PUZZLE_DFS_ORDER : PUZZLE_BFS_ORDER;
+  const orderIndexOf = (id) => order.indexOf(id);
+
+  let idx = -1, playing = false, timer = null;
+  function stopTimer(){ if (timer){ clearInterval(timer); timer = null; } }
+
+  function render(){
+    const visited = new Set(order.slice(0, idx + 1));
+    const currentId = idx >= 0 ? order[idx] : null;
+
+    const polylines = edgesOut.map(([a, b]) => {
+      const pa = positions[a], pb = positions[b];
+      const topA = pa.y + BOARD/2, botB = pb.y - BOARD/2;
+      const midY = (topA + botB) / 2;
+      const bothVisited = visited.has(a) && visited.has(b);
+      const stroke = bothVisited ? t.stroke : '#e2e8f0';
+      const width = bothVisited ? 2.5 : 1.5;
+      return `<polyline points="${pa.x},${topA} ${pa.x},${midY} ${pb.x},${midY} ${pb.x},${botB}" fill="none" stroke="${stroke}" stroke-width="${width}"/>`;
+    }).join('');
+
+    const boards = nodesOut.map(n => {
+      const p = positions[n.id];
+      const isVisited = visited.has(n.id);
+      const isCurrent = n.id === currentId;
+      const stepNum = orderIndexOf(n.id) + 1;
+      const blockedHtml = n.blocked.length > 0 ? `
+        <div class="flex flex-wrap gap-1 justify-center mt-1" style="width:130px">
+          ${n.blocked.map(b => `<span class="text-xs font-bold px-1.5 py-0.5 rounded ${b.status === 'wall' ? 'bg-gray-200 text-gray-500' : 'bg-orange-100 text-orange-600'}">${b.dir.key} ${b.status === 'wall' ? '🧱벽' : '↩이전'}</span>`).join('')}
+        </div>` : '';
+      return `
+        <div class="absolute flex flex-col items-center" style="left:${p.x - BOARD/2}px;top:${p.y - BOARD/2}px;width:${BOARD}px">
+          <div class="relative">
+            <div class="absolute -left-2 -top-2 z-10 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${isCurrent ? 'bg-rose-500 scale-125 pulse-glow' : theme === 'green' ? 'bg-green-500' : 'bg-indigo-500'}" style="${isCurrent ? 'color:#f43f5e;' : ''}">
+              ${isVisited ? stepNum : ''}
+            </div>
+            ${puzzleMiniBoardHtml(n.state, BOARD, n.id === 'proot' || isCurrent, n.isGoal && isVisited, theme)}
+          </div>
+          ${blockedHtml}
+        </div>`;
+    }).join('');
+
+    container.innerHTML = `
+      <div class="${t.bg} border-2 ${t.bgBorder} rounded-xl p-4">
+        <div class="flex flex-wrap gap-2 mb-4">
+          <button id="pt-next" ${idx >= order.length - 1 ? 'disabled' : ''} class="${theme === 'green' ? 'bg-green-600' : 'bg-indigo-600'} text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm hover:opacity-90 disabled:opacity-40">▶ 한 단계씩</button>
+          <button id="pt-play" ${idx >= order.length - 1 ? 'disabled' : ''} class="bg-gray-700 text-white px-4 py-2 rounded-lg font-bold text-base shadow-sm hover:opacity-90 disabled:opacity-40">⏩ 자동 재생</button>
+          <button id="pt-reset" class="bg-white border-2 border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-bold text-base hover:bg-gray-50">🔄 처음부터</button>
+        </div>
+        <div class="bg-white rounded-lg border border-gray-200 p-3 overflow-x-auto">
+          <div style="position:relative;width:${totalWidth}px;height:${totalHeight}px">
+            <svg width="${totalWidth}" height="${totalHeight}" style="position:absolute;top:0;left:0;pointer-events:none">${polylines}</svg>
+            ${boards}
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-4 justify-center text-base mt-3 border-t border-gray-100 pt-3">
+          <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded border-2 ${t.border}"></span> 초기 상태(뿌리)</span>
+          <span class="flex items-center gap-1"><span class="w-5 h-5 rounded-full bg-rose-500 text-white text-xs font-bold flex items-center justify-center">n</span> 방문 순서 번호</span>
+          <span class="flex items-center gap-1"><span class="inline-block w-4 h-4 rounded border-4 border-amber-500"></span> 🎯 목표 상태(정답)</span>
+          <span class="flex items-center gap-1"><span class="px-1.5 py-0.5 rounded bg-gray-200 text-gray-500 text-xs font-bold">🧱벽</span> 판 밖이라 이동 불가</span>
+          <span class="flex items-center gap-1"><span class="px-1.5 py-0.5 rounded bg-orange-100 text-orange-600 text-xs font-bold">↩이전</span> 바로 직전 상태로 되돌아가서 건너뜀</span>
+        </div>
+      </div>`;
+
+    container.querySelector('#pt-next').onclick = () => { stopTimer(); idx = Math.min(idx + 1, order.length - 1); render(); };
+    container.querySelector('#pt-play').onclick = () => {
+      stopTimer();
+      timer = setInterval(() => {
+        if (idx >= order.length - 1) { stopTimer(); render(); return; }
+        idx += 1; render();
+      }, 700);
+    };
+    container.querySelector('#pt-reset').onclick = () => { stopTimer(); idx = -1; render(); };
+  }
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   8-퍼즐 직접 플레이하기
+═══════════════════════════════════════════ */
+function mountSlidingPuzzleGame(container){
+  function shuffleFrom(goal){
+    let s = goal.slice();
+    let last = -1;
+    for (let i = 0; i < 60; i++) {
+      const blankIdx = s.indexOf(0);
+      const opts = PUZZLE_DIRS
+        .map((d, di) => ({ d, di, next: puzzleApplyMove(s, d) }))
+        .filter(o => o.next && o.di !== last);
+      if (opts.length === 0) continue;
+      const pick = opts[Math.floor(Math.random() * opts.length)];
+      s = pick.next;
+      last = pick.di === 0 ? 1 : pick.di === 1 ? 0 : pick.di === 3 ? 2 : 3;
+    }
+    return s;
+  }
+
+  let board = shuffleFrom(PUZZLE_GOAL), moves = 0;
+
+  function render(){
+    const solved = board.every((v, i) => v === PUZZLE_GOAL[i]);
+    const tiles = board.map((v, i) => `
+      <button data-tile="${i}" ${v === 0 ? 'disabled' : ''}
+        class="h-[64px] rounded-lg text-2xl font-bold transition-all ${v === 0 ? 'bg-transparent cursor-default' : 'bg-white text-indigo-700 shadow hover:bg-indigo-50 active:scale-95 cursor-pointer'}">
+        ${v !== 0 ? v : ''}
+      </button>`).join('');
+
+    container.innerHTML = `
+      <div class="bg-white rounded-xl border-2 border-indigo-300 p-5">
+        <div class="flex items-center justify-between mb-3">
+          <p class="text-base font-bold text-gray-700">🎮 움직인 횟수: <span class="text-indigo-600">${moves}</span></p>
+          <button id="sp-reshuffle" class="bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold text-base hover:bg-indigo-700">🔀 섞기</button>
+        </div>
+        <div class="grid grid-cols-3 gap-1.5 bg-slate-200 p-2 rounded-xl mx-auto" style="width:220px">${tiles}</div>
+        ${solved ? `
+          <div class="pop-in text-center mt-4 bg-green-50 border-2 border-green-300 rounded-xl p-3">
+            <p class="text-2xl mb-1">🎉</p>
+            <p class="font-bold text-green-700">완성! ${moves}번 만에 맞췄어요!</p>
+          </div>` : ''}
+        <p class="text-center text-base text-gray-500 mt-3">빈 칸과 붙어 있는 숫자를 클릭하면 그 칸으로 밀려 들어가요. 숫자를 1~8 순서로, 빈 칸이 맨 마지막(오른쪽 아래)에 오도록 맞춰보세요!</p>
+      </div>`;
+
+    const solvedNow = board.every((v, i) => v === PUZZLE_GOAL[i]);
+    container.querySelectorAll('[data-tile]').forEach(btn => {
+      btn.onclick = () => {
+        if (solvedNow) return;
+        const i = parseInt(btn.dataset.tile, 10);
+        const blankIdx = board.indexOf(0);
+        const [r1, c1] = puzzleRC(i), [r2, c2] = puzzleRC(blankIdx);
+        const adjacent = (Math.abs(r1 - r2) + Math.abs(c1 - c2)) === 1;
+        if (!adjacent) return;
+        const next = board.slice();
+        next[blankIdx] = board[i]; next[i] = 0;
+        board = next; moves += 1;
+        render();
+      };
+    });
+    container.querySelector('#sp-reshuffle').onclick = () => { board = shuffleFrom(PUZZLE_GOAL); moves = 0; render(); };
+  }
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   최종 경로 트리
+═══════════════════════════════════════════ */
+function finalPathTreeHtml(steps, theme = 'indigo'){
+  const items = steps.map((s, i) => `
+    ${i > 0 ? `
+      <div class="flex flex-col items-center">
+        <div class="w-0.5 h-3 bg-gray-300"></div>
+        <span class="text-sm font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full whitespace-nowrap">${s.moveLabel}</span>
+        <div class="w-0.5 h-3 bg-gray-300"></div>
+        <span class="text-gray-400 -mt-1">▼</span>
+      </div>` : ''}
+    <div class="text-center">
+      ${puzzleMiniBoardHtml(s.state, 130, false, i === steps.length - 1, theme)}
+      <p class="text-sm text-gray-500 mt-1">${s.caption}</p>
+    </div>`).join('');
+  return `
+    <div class="bg-white border-2 border-gray-200 rounded-xl p-5 pop-in">
+      <p class="font-bold text-gray-700 mb-4">🌳 최종 경로 (트리)</p>
+      <div class="flex flex-col items-center">${items}</div>
+    </div>`;
+}
+/* ═══════════════════════════════════════════
+   언덕 등반 탐색 체험
+═══════════════════════════════════════════ */
+function mountHillClimbDemo(container){
+  const startCaption = (s) => `시작 (f=${puzzleHeuristic(s)})`;
+  let current = PUZZLE_INITIAL;
+  let history = [{ state: PUZZLE_INITIAL, moveLabel: '시작', caption: startCaption(PUZZLE_INITIAL) }];
+  let revealed = false, pickKey = null, status = 'playing', scenario = 'success';
+
+  function render(){
+    const currentF = puzzleHeuristic(current);
+    const candidates = PUZZLE_DIRS.map(d => {
+      const next = puzzleApplyMove(current, d);
+      if (!next) return { dir: d.key, label: d.label, wall: true };
+      return { dir: d.key, label: d.label, state: next, f: puzzleHeuristic(next) };
+    });
+    const openCands = candidates.filter(c => !c.wall);
+    const best = openCands.reduce((a, c) => (!a || c.f < a.f) ? c : a, null);
+    const correctIsStuck = !best || best.f >= currentF;
+
+    let statusHtml = '';
+    if (status === 'playing') {
+      statusHtml = `
+        <div class="bg-orange-50 border-2 border-orange-300 rounded-xl p-5 slide-in">
+          <p class="font-bold text-orange-900 mb-3">🧭 다음엔 어디로 이동할까요? 이웃을 클릭해서 예측해보세요!</p>
+          <div class="flex flex-wrap gap-4">
+            ${candidates.map(c => {
+              if (c.wall) return `
+                <div class="w-28 flex flex-col items-center justify-center text-gray-400 text-base bg-gray-100 rounded-lg p-3 border-2 border-gray-200">
+                  <span class="text-2xl mb-1">🧱</span>${c.label}<br/>(판 밖 · 벽)
+                </div>`;
+              const k = puzzleStateKey(c.state);
+              const isBestPick = best && puzzleStateKey(best.state) === k;
+              const isUserPick = pickKey === k;
+              let borderClass = 'border-orange-200 bg-white hover:border-orange-400 hover:-translate-y-0.5';
+              if (revealed && isBestPick) borderClass = 'border-green-400 bg-green-50';
+              else if (revealed && isUserPick) borderClass = 'border-red-400 bg-red-50';
+              else if (revealed) borderClass = 'border-gray-200 bg-white opacity-60';
+              return `
+                <button data-cand="${k}" ${revealed ? 'disabled' : ''} class="flex flex-col items-center gap-1 rounded-lg p-2 border-2 transition-all ${borderClass}">
+                  <span class="text-base font-bold text-gray-700">${c.label}</span>
+                  ${puzzleMiniBoardHtml(c.state, 110, false, false, 'orange')}
+                  <span class="text-base font-bold ${revealed && isBestPick ? 'text-green-600' : 'text-gray-500'}">${revealed ? `f = ${c.f}` : 'f = ?'}</span>
+                  ${revealed && isBestPick ? `<span class="text-sm text-green-700 font-bold">✅ 가장 낮은 f</span>` : ''}
+                  ${revealed && isUserPick && !isBestPick ? `<span class="text-sm text-red-600 font-bold">내 예측</span>` : ''}
+                </button>`;
+            }).join('')}
+            ${!revealed ? `
+              <button id="hc-stuck-btn" class="flex flex-col items-center justify-center gap-1 rounded-lg p-2 border-2 border-dashed border-gray-300 bg-white hover:border-gray-500 w-28">
+                <span class="text-xl">🛑</span>
+                <span class="text-base font-bold text-gray-600">여기서 멈춘다</span>
+              </button>` : ''}
+          </div>
+          ${revealed ? `
+            <div class="slide-in mt-4 bg-white rounded-lg p-3 border border-orange-200">
+              ${correctIsStuck
+                ? `<p class="text-base text-gray-700">💡 이웃 중에 현재(f=${currentF})보다 더 좋은 곳이 없어요. 언덕 등반은 <b>여기서 멈춰요.</b></p>`
+                : `<p class="text-base text-gray-700">💡 <b>${best.label}</b> 방향의 f=${best.f}가 가장 낮아요. 언덕 등반은 이곳으로 이동해요.</p>`}
+              <button id="hc-next-btn" class="mt-3 bg-orange-500 text-white font-bold px-4 py-2 rounded-lg">${correctIsStuck ? '결과 확인하기 →' : '다음 단계로 →'}</button>
+            </div>` : ''}
+        </div>`;
+    } else if (status === 'goal') {
+      statusHtml = `
+        <div class="space-y-4">
+          <div class="pop-in bg-green-50 border-2 border-green-300 rounded-xl p-5 text-center">
+            <div class="text-4xl mb-2">🏆</div>
+            <p class="text-lg font-bold text-green-800 mb-1">목표 상태에 도착했어요! (f = 0)</p>
+            <p class="text-base text-gray-600 mb-3">이웃만 보고도 목표까지 잘 도착하는 경우도 있어요. 하지만 언제나 성공하는 건 아니에요 — 아래에서 함정을 체험해보세요.</p>
+            <div class="flex justify-center gap-3">
+              <button id="hc-reset-init" class="bg-gray-200 px-4 py-2 rounded-lg font-bold">🔄 다시 체험</button>
+              <button id="hc-reset-trap" class="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold">🧗 언덕 등반의 함정 체험하기</button>
+            </div>
+          </div>
+          ${finalPathTreeHtml(history, 'orange')}
+        </div>`;
+    } else if (status === 'stuck') {
+      statusHtml = `
+        <div class="pop-in bg-red-50 border-2 border-red-300 rounded-xl p-5 text-center">
+          <div class="text-4xl mb-2">😵</div>
+          <p class="text-lg font-bold text-red-800 mb-1">막혔어요! (f = ${currentF}에서 정지)</p>
+          <p class="text-base text-gray-700 mb-3 leading-relaxed">
+            ${scenario === 'trap'
+              ? '이 퍼즐은 사실 4번만 이동하면 풀 수 있어요! 하지만 언덕 등반은 "당장 이웃보다 좋아 보이는가"만 보기 때문에, 잠깐 f가 그대로거나 늘어나야만 갈 수 있는 길은 아예 시도조차 하지 않아요. 이렇게 지나온 길을 기억하지 못하고 눈앞의 이웃만 보다가 멈추는 것을 "지역 최적점(막다른 언덕 꼭대기)에 빠졌다"고 해요.'
+              : '이웃 중에 지금보다 더 좋은 곳이 없어서 여기서 멈췄어요. 언덕 등반은 이런 상황(지역 최적점)에 잘 빠지는 게 가장 큰 단점이에요.'}
+          </p>
+          <div class="flex justify-center gap-3">
+            <button id="hc-reset-init" class="bg-gray-200 px-4 py-2 rounded-lg font-bold">🔄 성공 사례 다시 보기</button>
+            ${scenario !== 'trap' ? `<button id="hc-reset-trap" class="bg-orange-500 text-white px-4 py-2 rounded-lg font-bold">🧗 함정 체험하기</button>` : ''}
+          </div>
+        </div>`;
+    }
+
+    container.innerHTML = `
+      <div class="space-y-4">
+        <div class="bg-white border-2 border-orange-200 rounded-xl p-5">
+          <div class="flex flex-wrap items-center gap-6">
+            <div class="text-center">
+              <p class="text-base font-bold text-gray-600 mb-2">현재 상태</p>
+              ${puzzleMiniBoardHtml(current, 160, true, false, 'orange')}
+              <p class="mt-2 text-lg font-bold text-orange-600">f(n) = ${currentF}</p>
+            </div>
+            <div class="flex-1 min-w-[220px]">
+              <p class="text-base text-gray-700 leading-relaxed">
+                <b>언덕 등반 탐색</b>은 평가 함수 f(n) = h(n)을 그대로 써서, <b>지금 서 있는 자리의 이웃</b>만 둘러봐요.
+                이웃 중에서 <b>현재보다 f(n)이 더 낮은(더 좋은) 곳이 있으면</b> 그쪽으로 한 걸음 이동하고,
+                <b> 더 좋은 이웃이 하나도 없으면 그 자리에서 멈춰요.</b> 지나온 길 전체를 기억하지 않아요!
+              </p>
+            </div>
+          </div>
+        </div>
+        ${statusHtml}
+      </div>`;
+
+    container.querySelectorAll('[data-cand]').forEach(btn => {
+      btn.onclick = () => { pickKey = btn.dataset.cand; revealed = true; render(); };
+    });
+    const stuckBtn = container.querySelector('#hc-stuck-btn');
+    if (stuckBtn) stuckBtn.onclick = () => { pickKey = '__stuck__'; revealed = true; render(); };
+    const nextBtn = container.querySelector('#hc-next-btn');
+    if (nextBtn) nextBtn.onclick = () => {
+      if (correctIsStuck) { status = 'stuck'; render(); return; }
+      current = best.state;
+      history = [...history, { state: best.state, moveLabel: best.label, caption: `${best.label} (f=${best.f})` }];
+      revealed = false; pickKey = null;
+      if (isGoalState(best.state)) status = 'goal';
+      render();
+    };
+    const resetInit = container.querySelector('#hc-reset-init');
+    if (resetInit) resetInit.onclick = () => doReset(PUZZLE_INITIAL);
+    const resetTrap = container.querySelector('#hc-reset-trap');
+    if (resetTrap) resetTrap.onclick = () => doReset(TRAP_START);
+  }
+
+  function doReset(s){
+    current = s;
+    history = [{ state: s, moveLabel: '시작', caption: startCaption(s) }];
+    revealed = false; pickKey = null; status = 'playing';
+    scenario = (s === TRAP_START) ? 'trap' : 'success';
+    render();
+  }
+
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   최상 우선 탐색 / A* 공용 프론티어 체험
+═══════════════════════════════════════════ */
+function mountFrontierDemo(container, mode){
+  const scoreOf = (n) => mode === 'astar' ? n.g + n.h : n.h;
+  const initNode = { state: PUZZLE_INITIAL, g: 0, h: puzzleHeuristic(PUZZLE_INITIAL), parentKey: null };
+  let open = [initNode], trail = [], revealed = false, pickKey = null, status = 'playing', count = 0;
+
+  const label = mode === 'astar' ? 'f(n) = g(n)+h(n)' : 'f(n) = h(n)';
+  const btn = mode === 'astar' ? 'bg-amber-500' : 'bg-teal-600';
+  const theme = mode === 'astar' ? 'amber' : 'teal';
+
+  function render(){
+    const sorted = [...open].sort((a, b) => scoreOf(a) - scoreOf(b));
+    const bestNode = sorted[0];
+
+    let trailBar = '';
+    if (trail.length > 0 && status !== 'goal') {
+      trailBar = `
+        <div class="bg-white border-2 border-gray-200 rounded-xl p-4 overflow-x-auto">
+          <p class="text-base font-bold text-gray-600 mb-2">✅ 지금까지 확장한 노드 (경로)</p>
+          <div class="flex items-center gap-2">
+            ${trail.map((n, i) => `
+              <div class="text-center">${puzzleMiniBoardHtml(n.state, 100, false, false, theme)}<p class="text-sm text-gray-500 mt-1">f=${scoreOf(n)}</p></div>
+              ${i < trail.length - 1 ? `<span class="text-gray-400">→</span>` : ''}`).join('')}
+          </div>
+        </div>`;
+    }
+
+    let statusHtml = '';
+    if (status === 'playing') {
+      statusHtml = `
+        <div class="border-2 rounded-xl p-5 slide-in ${mode === 'astar' ? 'bg-amber-50 border-amber-300' : 'bg-teal-50 border-teal-300'}">
+          <p class="font-bold text-gray-800 mb-1">📋 열린 목록(OPEN) — 아직 확장하지 않은 후보들</p>
+          <p class="text-base text-gray-600 mb-3">이 중에서 <b>${label}가 가장 작은</b> 노드를 클릭해서 예측해보세요!</p>
+          <div class="flex flex-wrap gap-3">
+            ${sorted.map(n => {
+              const k = puzzleStateKey(n.state);
+              const isBest = bestNode && puzzleStateKey(bestNode.state) === k;
+              const isUser = pickKey === k;
+              let border = 'border-gray-200 bg-white hover:-translate-y-0.5';
+              if (revealed && isBest) border = 'border-green-400 bg-green-50';
+              else if (revealed && isUser) border = 'border-red-400 bg-red-50';
+              return `
+                <button data-open-key="${k}" ${revealed ? 'disabled' : ''} class="flex flex-col items-center gap-1 rounded-lg p-2 border-2 transition-all ${border}">
+                  ${puzzleMiniBoardHtml(n.state, 115, false, false, theme)}
+                  ${mode === 'astar' ? `<span class="text-sm text-gray-500">g=${n.g}, h=${n.h}</span>` : ''}
+                  <span class="text-base font-bold ${revealed && isBest ? 'text-green-600' : 'text-gray-700'}">f = ${scoreOf(n)}</span>
+                  ${revealed && isBest ? `<span class="text-sm text-green-700 font-bold">✅ 가장 작음</span>` : ''}
+                  ${revealed && isUser && !isBest ? `<span class="text-sm text-red-600 font-bold">내 예측</span>` : ''}
+                </button>`;
+            }).join('')}
+          </div>
+          ${revealed ? `
+            <div class="slide-in mt-4 bg-white rounded-lg p-3 border border-gray-200">
+              <p class="text-base text-gray-700">
+                💡 ${mode === 'astar'
+                  ? `이 노드는 <b>지금까지 걸어온 거리 g=${bestNode.g}</b>와 <b>남은 거리 예측 h=${bestNode.h}</b>을 더한 <b>f=${bestNode.g + bestNode.h}</b>가 가장 작아요. A*는 이 노드를 다음으로 확장해요.`
+                  : `이 노드는 <b>f(n) = h(n) = ${bestNode.h}</b>이 가장 작아요. 최상 우선 탐색은 걸어온 거리는 신경 쓰지 않고, 오직 f가 가장 작은 노드를 다음으로 확장해요.`}
+              </p>
+              <button id="fd-expand-btn" class="mt-3 text-white font-bold px-4 py-2 rounded-lg ${btn}">이 노드 확장하기 →</button>
+            </div>` : ''}
+        </div>`;
+    } else if (status === 'goal') {
+      const finalSteps = trail.map((n, i) => {
+        if (i === 0) return { state: n.state, moveLabel: '시작', caption: `시작 (f=${scoreOf(n)})` };
+        const mv = directionBetween(trail[i - 1].state, n.state) || '이동';
+        return { state: n.state, moveLabel: mv, caption: `${mv} (f=${scoreOf(n)})` };
+      });
+      statusHtml = `
+        <div class="space-y-4">
+          <div class="pop-in bg-green-50 border-2 border-green-300 rounded-xl p-5 text-center">
+            <div class="text-4xl mb-2">🏆</div>
+            <p class="text-lg font-bold text-green-800 mb-1">목표 상태를 찾았어요! (총 이동 횟수 = ${trail[trail.length - 1].g})</p>
+            <p class="text-base text-gray-600 mb-3">OPEN 목록 전체를 기억하고 있었기 때문에, 중간에 이웃이 별로였던 순간에도 막히지 않고 계속 탐색할 수 있었어요.</p>
+            <button id="fd-reset-btn" class="bg-gray-200 px-4 py-2 rounded-lg font-bold">🔄 다시 체험</button>
+          </div>
+          ${finalPathTreeHtml(finalSteps, theme)}
+        </div>`;
+    } else if (status === 'limit') {
+      statusHtml = `
+        <div class="pop-in bg-yellow-50 border-2 border-yellow-300 rounded-xl p-5 text-center">
+          <p class="text-base text-gray-700 mb-3">체험판에서는 최대 8단계까지만 진행해요. 여기까지의 흐름으로도 충분히 원리를 확인할 수 있어요!</p>
+          <button id="fd-reset-btn" class="bg-gray-200 px-4 py-2 rounded-lg font-bold">🔄 다시 체험</button>
+        </div>`;
+    }
+
+    container.innerHTML = `<div class="space-y-4">${trailBar}${statusHtml}</div>`;
+
+    container.querySelectorAll('[data-open-key]').forEach(b => {
+      b.onclick = () => { pickKey = b.dataset.openKey; revealed = true; render(); };
+    });
+    const expandBtn = container.querySelector('#fd-expand-btn');
+    if (expandBtn) expandBtn.onclick = () => {
+      if (!bestNode) { status = 'limit'; render(); return; }
+      const rest = open.filter(n => puzzleStateKey(n.state) !== puzzleStateKey(bestNode.state));
+      trail = [...trail, bestNode];
+      if (isGoalState(bestNode.state)) { open = rest; status = 'goal'; revealed = false; pickKey = null; render(); return; }
+      const kids = [];
+      PUZZLE_DIRS.forEach(d => {
+        const nxt = puzzleApplyMove(bestNode.state, d);
+        if (!nxt) return;
+        if (bestNode.parentKey && puzzleStateKey(nxt) === bestNode.parentKey) return;
+        if (rest.some(n => puzzleStateKey(n.state) === puzzleStateKey(nxt))) return;
+        kids.push({ state: nxt, g: bestNode.g + 1, h: puzzleHeuristic(nxt), parentKey: puzzleStateKey(bestNode.state) });
+      });
+      count += 1;
+      open = [...rest, ...kids];
+      revealed = false; pickKey = null;
+      if (count >= 8) status = 'limit';
+      render();
+    };
+    const resetBtn = container.querySelector('#fd-reset-btn');
+    if (resetBtn) resetBtn.onclick = () => {
+      open = [initNode]; trail = []; revealed = false; pickKey = null; status = 'playing'; count = 0;
+      render();
+    };
+  }
+  render();
+}
+
+/* ═══════════════════════════════════════════
+   h(n)/f(n) 개념 설명 (정적)
+═══════════════════════════════════════════ */
+function informedHeuristicExplainHtml(){
+  return `
+    <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+      <h3 class="text-lg font-bold text-gray-800 mb-2">📏 평가 기준: 휴리스틱 h(n) = "틀린 타일 개수"</h3>
+      <p class="text-base text-gray-700 leading-relaxed mb-3">
+        목표 상태(<b>1 2 3 / 8 _ 4 / 7 6 5</b>)와 비교했을 때, <b>자리가 잘못된 숫자 타일의 개수</b>를 h(n)이라고 해요. (빈칸은 세지 않아요) h(n)이 작을수록 목표에 가깝다는 뜻이에요.
+        이 h(n)을 바탕으로 <b>평가 함수 f(n)</b>을 만드는데, <b>언덕 등반·최상 우선 탐색은 f(n) = h(n)</b>을 그대로 쓰고, <b>A*는 f(n) = g(n) + h(n)</b>처럼 지금까지 걸어온 거리 g(n)까지 더해서 써요.
+      </p>
+      <div class="flex flex-wrap items-center gap-6 bg-gray-50 rounded-lg p-4">
+        <div class="text-center">
+          <p class="text-sm text-gray-500 mb-1">시작 상태</p>
+          ${puzzleMiniBoardHtml(PUZZLE_INITIAL, 135, false, false, 'indigo')}
+        </div>
+        <div class="text-base text-gray-700 leading-relaxed">
+          하나씩 세어보면 <b>1, 2, 8의 위치가 목표와 달라요</b> → <span class="text-lg font-bold text-indigo-600">h = f = 3</span>
+        </div>
+        <div class="text-center">
+          <p class="text-sm text-gray-500 mb-1">목표 상태</p>
+          ${puzzleMiniBoardHtml(PUZZLE_GOAL, 135, false, true, 'indigo')}
+          <p class="text-sm text-indigo-600 font-bold mt-1">h = f = 0</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+function informedConceptCardHtml(theme, icon, title, bodyHtml){
+  const t = PUZZLE_THEME[theme];
+  return `
+    <div class="rounded-xl border-2 p-5 ${t.bg} ${t.bgBorder}">
+      <h2 class="text-xl font-bold mb-2 ${t.title}">${icon} ${title}</h2>
+      <div class="text-base text-gray-700 leading-relaxed space-y-2">${bodyHtml}</div>
+    </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   세 알고리즘 비교 탭
+═══════════════════════════════════════════ */
+function mountInformedCompareTab(container){
+  let showSparrow = false;
+  let sparrowTimer = null;
+
+  function render(){
+    container.innerHTML = `
+      <div class="space-y-5 slide-in">
+        <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-gray-800 mb-3">⚖️ 세 알고리즘 한눈에 비교</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-base text-center border-collapse">
+              <thead>
+                <tr class="bg-gray-100">
+                  <th class="p-2 border border-gray-200"></th>
+                  <th class="p-2 border border-gray-200 text-orange-600">언덕 등반 탐색</th>
+                  <th class="p-2 border border-gray-200 text-teal-700">최상 우선 탐색</th>
+                  <th class="p-2 border border-gray-200 text-amber-700">A* 탐색</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">평가 함수</td><td class="p-2 border border-gray-200">f(n) = h(n)</td><td class="p-2 border border-gray-200">f(n) = h(n)</td><td class="p-2 border border-gray-200">f(n) = g(n) + h(n)</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">보는 범위</td><td class="p-2 border border-gray-200">현재 위치의 이웃만</td><td class="p-2 border border-gray-200">지금까지 발견한 모든 후보(OPEN)</td><td class="p-2 border border-gray-200">지금까지 발견한 모든 후보(OPEN)</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">선택 기준</td><td class="p-2 border border-gray-200">이웃 중 f가 더 낮은 곳</td><td class="p-2 border border-gray-200">OPEN 중 f가 가장 낮은 곳</td><td class="p-2 border border-gray-200">OPEN 중 f가 가장 낮은 곳</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">지나온 길 기억</td><td class="p-2 border border-gray-200">❌ 기억 안 함</td><td class="p-2 border border-gray-200">✅ 기억함(g는 안 씀)</td><td class="p-2 border border-gray-200">✅ 기억함(g도 씀)</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">약점</td><td class="p-2 border border-gray-200">지역 최적점에 빠져서 멈출 수 있음</td><td class="p-2 border border-gray-200">돌아가는 먼 길인데도 f만 낮으면 선택해버릴 수 있음</td><td class="p-2 border border-gray-200">g와 h를 함께 계산하는 비용이 더 큼</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">최적 경로 보장</td><td class="p-2 border border-gray-200">❌</td><td class="p-2 border border-gray-200">❌</td><td class="p-2 border border-gray-200">✅ (h가 실제 거리보다 크지 않을 때)</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-indigo-900 mb-2">🤔 왜 A*가 최상 우선 탐색보다 더 똑똑할까?</h3>
+          <p class="text-base text-gray-700 leading-relaxed">
+            이번 8-퍼즐 예제에서는 두 알고리즘이 우연히 같은 순서로 움직였어요. 하지만 항상 그런 건 아니에요.
+            예를 들어 A 노드는 f=1이지만 사실 목표까지 실제로는 10걸음이 남았고, B 노드는 f=2지만 실제로는 3걸음만 가면 목표라면?
+            <br/>최상 우선 탐색은 f=h만 보기 때문에 무조건 A를 먼저 파고들어 먼 길을 헤매요.
+            반면 A*는 f = g(지금까지 걸어온 거리) + h(예상 거리)를 함께 보기 때문에, 이미 많이 걸어온 후보의 점수를 낮게 평가하지 않아서 이런 함정에 덜 빠지고, <b>최적의 경로를 찾는다는 것이 이론적으로 보장</b>돼요.
+          </p>
+        </div>
+
+        <div class="bg-slate-900 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-white mb-4">📉📈 h(n) 예측이 빗나갈 때</h3>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-white rounded-xl p-4">
+              <div class="flex items-center gap-3 mb-1">
+                <span id="sparrow-trigger" class="relative inline-block cursor-pointer w-10 h-10 rounded-full bg-teal-700 text-white flex items-center justify-center text-lg">
+                  🔍
+                  ${showSparrow ? `<span class="absolute left-1/2 -translate-x-1/2 -top-12 bg-yellow-400 text-gray-900 px-3 py-1 rounded-xl text-sm font-bold whitespace-nowrap shadow-2xl z-50" style="animation:bounceOnce 0.4s ease-in-out">참새</span>` : ''}
+                </span>
+                <h4 class="text-lg font-bold text-slate-800">과소평가</h4>
+              </div>
+              <p class="text-base font-bold text-teal-700 mb-3">h(n) &lt; 실제 남은 거리</p>
+              <ul class="space-y-1.5 text-base text-gray-700 mb-3">
+                <li>• "이 길도 괜찮아 보이는데?" 라고 착각해요</li>
+                <li>• 여러 후보를 의심 없이 꼼꼼히 살펴봐요</li>
+                <li>• 탐색량이 늘어나 효율성은 낮아져요</li>
+                <li>• 하지만 최적 경로는 항상 찾아내요</li>
+              </ul>
+              <div class="bg-sky-100 text-sky-900 text-base font-bold rounded-lg px-3 py-2 text-center">효율성 ↓&nbsp;&nbsp; 정확성 O (최적 경로 보장)</div>
+            </div>
+            <div class="bg-blue-800 rounded-xl p-4">
+              <div class="flex items-center gap-3 mb-1">
+                <span class="w-10 h-10 rounded-full bg-orange-500 text-white flex items-center justify-center text-lg">⚡</span>
+                <h4 class="text-lg font-bold text-white">과대평가</h4>
+              </div>
+              <p class="text-base font-bold text-orange-300 mb-3">h(n) &gt; 실제 남은 거리</p>
+              <ul class="space-y-1.5 text-base text-blue-50 mb-3">
+                <li>• "이 길은 별로겠다" 라고 지레짐작해요</li>
+                <li>• 괜찮은 길도 성급하게 걸러버려요</li>
+                <li>• 탐색량이 줄어들어 효율성은 높아져요</li>
+                <li>• 하지만 최적 경로를 놓칠 수 있어요</li>
+              </ul>
+              <div class="bg-blue-950 text-white text-base font-bold rounded-lg px-3 py-2 text-center">효율성 ↑&nbsp;&nbsp; 정확성 X (놓칠 위험 있음)</div>
+            </div>
+          </div>
+          <p class="text-base text-slate-200 leading-relaxed mt-4">
+            h(n)이 <b class="text-white">실제 남은 거리보다 작게(과소평가)</b> 예측되면, 탐색량은 늘어나 조금 느려지지만 <b class="text-white">A*는 항상 최적 경로를 찾아내요.</b>
+            반대로 h(n)이 <b class="text-white">실제보다 크게(과대평가)</b> 예측되면 탐색은 빨라지지만, <b class="text-white">더 좋은 길을 성급하게 놓쳐서 최적 경로를 보장하지 못할 수 있어요.</b>
+            그래서 A*는 h(n)이 실제 거리보다 크지 않은(=과소평가하는) 휴리스틱을 쓸 때만 "항상 최적 경로를 찾는다"고 보장할 수 있어요.
+          </p>
+        </div>
+      </div>`;
+
+    container.querySelector('#sparrow-trigger').onclick = () => {
+      showSparrow = true; render();
+      clearTimeout(sparrowTimer);
+      sparrowTimer = setTimeout(() => { showSparrow = false; render(); }, 500);
+    };
+  }
+  render();
+}
+/* ═══════════════════════════════════════════
+   App 레벨 상태 (탭을 넘나들어도 유지됨 - 원본의 App 컴포넌트 최상위 state와 동일)
+═══════════════════════════════════════════ */
+let activeTab = 'intro';
+let openHeur = null;
+let quizAnswers = {};
+let shakeId = null;
+let ruleStep = 0;
+let showGoal = true;
+
+const TABS = [
+  { id:'intro',    label:'🔍 탐색이란?' },
+  { id:'dfs',      label:'🕳️ 깊이 우선(DFS)' },
+  { id:'bfs',      label:'🌊 너비 우선(BFS)' },
+  { id:'informed', label:'🧭 정보 이용 탐색' },
+  { id:'hillclimb', label:'⛰️ 언덕 등반' },
+  { id:'bestfirst', label:'🔭 최상 우선' },
+  { id:'astarpuzzle', label:'⭐ A* 8퍼즐' },
+  { id:'astar',    label:'⭐ A* 체험' },
+  { id:'compare3', label:'⚖️ 세 알고리즘 비교' },
+  { id:'quiz',     label:'🎯 퀴즈' },
+];
+
+const queenRules = [
+  '체스판의 행이나 열에는 퀸이 한 개만 놓일 수 있어요. 그래서 먼저 1행에 퀸을 하나씩 놓아봐요.',
+  '1행에 놓은 후, 2행에는 서로 공격하지 않는 위치에 다른 퀸을 놓아요.',
+  '이전 단계에 놓은 다른 퀸들을 공격하지 않는지 확인하면서 계속 퀸을 놓아요.',
+  '모든 경우를 트리로 표현해서 해답(공격하지 않는 배치)을 모두 찾아내요!',
+];
+
+function calcScore(){ return quizData.filter(q => quizAnswers[q.id] === q.ans).length; }
+
+function renderHeader(){
+  const headerEl = document.getElementById('app-header');
+  headerEl.innerHTML = `
+    <div class="flex justify-between items-center mb-2">
+      <div class="text-base text-indigo-100 mb-2">고등학교 정보 학습자료</div>
+      <a href="index.html" class="bg-white text-indigo-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2">🏠 홈으로</a>
+    </div>
+    <h1 class="text-3xl font-bold mb-2">🧠 탐색 알고리즘 - 맹목적 탐색과 정보 이용 탐색</h1>
+    <p class="text-indigo-100">인공지능이 정답을 찾아가는 방법을 직접 체험해봐요!</p>
+    <button id="goal-toggle-btn" class="w-full bg-white/10 hover:bg-white/15 rounded-lg p-4 mt-4 transition-colors text-left">
+      <div class="flex items-center justify-between">
+        <p class="font-bold">🎯 오늘 우리가 할 수 있게 될 것</p>
+        <span class="text-xl transition-transform duration-300 ${showGoal ? 'rotate-180' : ''}">⌄</span>
+      </div>
+      ${showGoal ? `
+        <div class="slide-in mt-2 space-y-1">
+          <p class="text-indigo-50 text-base">🔎 컴퓨터가 "아무 정보 없이 무작정 찾는 방법(맹목적 탐색)"과 "힌트를 활용해 똑똑하게 찾는 방법(정보 이용 탐색)"이 어떻게 다른지 설명할 수 있어요.</p>
+          <p class="text-indigo-50 text-base">🧭 휴리스틱(힌트)을 활용하는 탐색 알고리즘으로 직접 문제를 풀어볼 수 있어요.</p>
+        </div>` : ''}
+    </button>`;
+  headerEl.querySelector('#goal-toggle-btn').onclick = () => { showGoal = !showGoal; renderHeader(); };
+}
+
+function renderTabButtons(){
+  const el = document.getElementById('search-tab-buttons');
+  el.innerHTML = TABS.map(t => `
+    <button data-stab="${t.id}" class="px-5 py-2 rounded-lg font-bold text-base transition-all whitespace-nowrap ${
+      activeTab === t.id ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}">
+      ${t.label}
+    </button>`).join('');
+  el.querySelectorAll('[data-stab]').forEach(btn => {
+    btn.onclick = () => { activeTab = btn.dataset.stab; renderTabButtons(); renderTabContent(); };
+  });
+}
+
+function renderTabContent(){
+  const el = document.getElementById('search-tab-content');
+
+  if (activeTab === 'intro') {
+    el.innerHTML = `
+      <div class="slide-in space-y-6">
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+          <p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p>
+          <p class="text-base text-gray-700">각 탭을 순서대로 눌러보며 인공지능이 길을 찾는 방법을 배워봐요. 버튼을 직접 눌러 체험할 수 있어요!</p>
+        </div>
+        <div class="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-xl border border-indigo-200">
+          <h2 class="text-xl font-bold text-indigo-900 mb-3">🤔 길을 잃었을 때, 우리는 어떻게 할까요?</h2>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="bg-white p-4 rounded-lg shadow-sm text-center">
+              <p class="text-4xl mb-2">🌀</p><p class="font-bold text-gray-700 mb-1">갈림길에서 감으로 찍는다?</p><p class="text-base text-gray-500">비효율적이에요</p>
+            </div>
+            <div class="bg-white p-4 rounded-lg shadow-sm text-center">
+              <p class="text-4xl mb-2">🌳</p><p class="font-bold text-gray-700 mb-1">지도와 규칙을 활용한다!</p><p class="text-base text-gray-500">체계적으로 찾을 수 있어요</p>
+            </div>
+          </div>
+          <div class="bg-indigo-100 p-4 rounded-lg border-l-4 border-indigo-500 mt-4">
+            <p class="text-base text-gray-700 leading-relaxed">인공지능이 정답을 찾는 이 체계적인 과정을 <span class="font-bold text-indigo-700">탐색(Search)</span>이라고 해요!</p>
+          </div>
+        </div>
+        <div class="grid md:grid-cols-2 gap-5">
+          <div class="bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
+            <h3 class="text-lg font-bold text-blue-800 mb-2">🕸️ 그래프(Graph)</h3>
+            <p class="text-base text-gray-700 leading-relaxed mb-2">자료 간의 관계를 <span class="font-bold">점과 선</span>으로 나타낸 것이에요.</p>
+            <p class="text-base text-gray-500">마치 여러 도시가 거미줄처럼 도로로 연결되어 있어, 어느 방향으로든 갈 수 있는 자유로운 지도와 같아요.</p>
+            ${graphExampleSvgHtml()}
+          </div>
+          <div class="bg-green-50 border-2 border-green-200 rounded-xl p-5">
+            <h3 class="text-lg font-bold text-green-800 mb-2">🌲 트리(Tree)</h3>
+            <p class="text-base text-gray-700 leading-relaxed mb-2">그래프가 질서를 갖추면 트리가 돼요. 뿌리(Root)에서 가지가 뻗어나가는 <span class="font-bold">계층 구조</span>예요.</p>
+            <p class="text-base text-gray-500">임의의 두 노드를 연결하는 경로가 오직 하나뿐이라는 특징이 있어요. (노드=점, 간선=선)</p>
+            ${treeExampleSvgHtml()}
+          </div>
+        </div>
+        <div class="bg-gradient-to-r from-slate-50 to-indigo-50 p-5 rounded-xl border border-indigo-200">
+          <h3 class="text-lg font-bold text-gray-800 mb-1">🌌 상태 공간 트리 vs 탐색 트리</h3>
+          <div class="grid md:grid-cols-2 gap-4 mt-3">
+            <div class="bg-white p-4 rounded-lg shadow-sm"><p class="font-bold text-gray-700 mb-1">🌐 상태 공간 트리</p><p class="text-base text-gray-600">문제를 풀어가는 과정에서 일어날 수 있는 <span class="font-bold">모든 가능한 상태</span>를 트리로 나타낸 것이에요. (일어날 수 있는 모든 미래)</p></div>
+            <div class="bg-white p-4 rounded-lg shadow-sm"><p class="font-bold text-gray-700 mb-1">🚶 탐색 트리</p><p class="text-base text-gray-600">특정 알고리즘이 해를 찾기 위해 <span class="font-bold">실제로 방문한</span> 노드들로 이루어진 트리예요. (우리가 실제로 걸어간 발자취)</p></div>
+          </div>
+          ${stateVsSearchTreeSvgHtml()}
+        </div>
+        <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-gray-800 mb-1">♛ 지도를 그리는 방법: 4-Queen 문제</h3>
+          <p class="text-base text-gray-500 mb-3">규칙: 4×4 체스판에 퀸(여왕) 4개를 서로 공격할 수 없게 배치하라! (퀸은 좌우·상하·대각선으로 이동해요)</p>
+          <div class="flex flex-wrap gap-2 mb-4">
+            ${queenRules.map((r, i) => `<button data-rulestep="${i}" class="w-9 h-9 rounded-full font-bold text-base ${ruleStep === i ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-500'}">${i + 1}</button>`).join('')}
+          </div>
+          <div class="bg-indigo-50 border-l-4 border-indigo-400 rounded-r-lg p-4 mb-4"><p class="text-base text-gray-700 leading-relaxed">${queenRules[ruleStep]}</p></div>
+          <div class="grid sm:grid-cols-2 gap-6">
+            <div class="text-center">
+              <p class="font-bold text-red-600 mb-2">❌ 실패 (서로 공격 가능)</p>
+              <div class="inline-grid grid-cols-4 gap-1 bg-gray-100 p-2 rounded-lg">
+                ${Array.from({length:16}).map((_, i) => { const r = Math.floor(i/4), col = i%4; const isQ = (r===0&&col===0) || (r===1&&col===1); return `<div class="w-10 h-10 flex items-center justify-center rounded ${isQ ? 'bg-red-200' : 'bg-white'} border border-gray-200 text-xl">${isQ ? '👑' : ''}</div>`; }).join('')}
+              </div>
+              <p class="text-base text-gray-500 mt-2">같은 대각선 위에 있어요</p>
+            </div>
+            <div class="text-center">
+              <p class="font-bold text-green-600 mb-2">✅ 성공 (안전함)</p>
+              <div class="inline-grid grid-cols-4 gap-1 bg-gray-100 p-2 rounded-lg">
+                ${Array.from({length:16}).map((_, i) => { const r = Math.floor(i/4), col = i%4; const isQ = (r===0&&col===0) || (r===1&&col===2); return `<div class="w-10 h-10 flex items-center justify-center rounded ${isQ ? 'bg-green-200' : 'bg-white'} border border-gray-200 text-xl">${isQ ? '👑' : ''}</div>`; }).join('')}
+              </div>
+              <p class="text-base text-gray-500 mt-2">행·열·대각선이 모두 달라요</p>
+            </div>
+          </div>
+          <div class="mt-5">
+            <p class="font-bold text-gray-800 mb-1">🌳 4-Queen 문제의 전체 상태 공간 트리</p>
+            <p class="text-base text-gray-500 mb-2">
+              행1부터 순서대로 퀸을 놓아가며 모든 경우를 체스판 그림으로 살펴본 트리예요. 각 체스판은 그때까지 놓인 퀸의 위치를 그대로 보여줘요.
+              <span class="text-red-600 font-bold"> 빨간 테두리</span>는 서로 공격해서 더 이상 진행할 수 없는 가지치기(pruning),
+              <span class="text-amber-600 font-bold"> 금색 테두리(⭐)</span>는 4개의 퀸이 모두 안전하게 배치된 정답이에요. (가로로 스크롤해서 전체를 볼 수 있어요)
+            </p>
+            ${queenFullTreeSvgHtml()}
+            <p class="text-center text-base text-gray-500 mt-2">4×4 체스판에서는 정답이 딱 <span class="font-bold text-amber-600">2가지</span> 나와요!</p>
+          </div>
+        </div>
+        <div class="bg-gradient-to-r from-indigo-50 to-violet-50 p-5 rounded-xl border border-indigo-200 text-center">
+          <p class="text-base text-gray-700">지도(경우의 수)가 너무 커지면, 컴퓨터도 길을 잃고 지쳐버려요.<br/>그래서 탐색 방법을 크게 <span class="font-bold text-blue-600">맹목적 탐색</span>과 <span class="font-bold text-amber-600">정보 이용 탐색</span> 두 가지로 나눠서 배워볼 거예요!</p>
+        </div>
+      </div>`;
+    el.querySelectorAll('[data-rulestep]').forEach(btn => {
+      btn.onclick = () => { ruleStep = parseInt(btn.dataset.rulestep, 10); renderTabContent(); };
+    });
+    return;
+  }
+
+  if (activeTab === 'dfs' || activeTab === 'bfs') {
+    const mode = activeTab;
+    const isDfs = mode === 'dfs';
+    el.innerHTML = `
+      <div class="slide-in space-y-6">
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+          <p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p>
+          <p class="text-base text-gray-700">${isDfs
+            ? '버튼을 눌러 트리를 한 단계씩, 또는 자동으로 탐색해보세요. 🎲 무작위 트리 생성으로 새로운 트리를 만들거나, ✏️ 내가 만들기로 마우스로 직접 트리를 그려서 DFS를 체험할 수도 있어요!'
+            : '같은 트리에서 이번엔 BFS로 탐색해봐요. DFS와 방문 순서가 어떻게 다른지 비교해보세요! 여기서도 🎲 무작위 트리 생성이나 ✏️ 내가 만들기를 사용할 수 있어요.'}</p>
+        </div>
+        <div class="${isDfs ? 'bg-blue-50 border-2 border-blue-200' : 'bg-green-50 border-2 border-green-200'} rounded-xl p-5">
+          <h2 class="text-xl font-bold ${isDfs ? 'text-blue-900' : 'text-green-900'} mb-2">${isDfs ? '🕳️ 한 놈만 판다! 깊이 우선 탐색 (DFS)' : '🌊 물결처럼 퍼진다! 너비 우선 탐색 (BFS)'}</h2>
+          <p class="text-base text-gray-700 leading-relaxed">${isDfs
+            ? '규칙: 한 방향으로 갈 수 있을 때까지 <span class="font-bold">가장 깊게</span> 쑥쑥 들어가요. 더 이상 갈 수 없으면 이전 갈림길로 되돌아와서 다른 방향으로 탐색을 이어가요. (마치 해저 보물을 찾으러 바닥까지 찍고 올라오는 잠수부처럼요!)'
+            : '규칙: 분기점(갈림길)에 도착했을 때, 그 분기점과 연결된 <span class="font-bold">같은 깊이</span>의 모든 상태를 먼저 탐색해요. 방문한 적이 있는 분기점은 다시 방문하지 않아요.'}</p>
+        </div>
+        <div id="tv-container"></div>
+        <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-gray-800 mb-1">🔢 ${isDfs ? 'DFS' : 'BFS'}로 문제 풀기: 8-퍼즐(숫자 슬라이드 퍼즐)</h3>
+          <p class="text-base text-gray-500 mb-3">${isDfs
+            ? '3×3 판에서 빈 칸을 <span class="font-bold text-indigo-600">좌 → 우 → 상 → 하</span> 순서로 옮기며 다음 상태를 만들어요. 판 밖으로 나가면 🧱벽에 막히고, 방금 왔던 상태로 되돌아가는 방향은 ↩이전 상태라서 건너뛰어요.'
+            : 'DFS 탭에서 본 것과 <span class="font-bold text-green-600">똑같은 문제와 똑같은 상태 트리</span>예요. 다만 BFS는 뿌리에서 가까운(같은 깊이의) 상태를 위에서부터 한 층씩 모두 확인한 뒤 다음 층으로 내려가요. 3×3 판에서 빈 칸을 <span class="font-bold text-green-600">좌 → 우 → 상 → 하</span> 순서로 옮기며 같은 깊이의 자식들을 먼저 만들어요.'}</p>
+          ${puzzleProblemIntroHtml(isDfs ? 'indigo' : 'green')}
+          <p class="font-bold text-gray-800 mt-5 mb-1">🌳 ${isDfs ? 'DFS' : 'BFS'} 탐색 트리 (일부)</p>
+          <p class="text-base text-gray-500 mb-2">${isDfs
+            ? '버튼을 눌러 DFS가 <span class="font-bold text-indigo-600">한 우물만 파듯</span> 노드를 하나씩 방문하는 순서를 직접 확인해보세요! 방문한 노드에는 순서 번호가 붙어요. (목표 상태까지 전부 보여주면 트리가 너무 커져서, 처음 몇 단계만 보여드려요 · 가로 스크롤 가능)'
+            : '트리 모양은 DFS와 똑같지만, <span class="font-bold text-green-600">같은 깊이(층)를 먼저 모두</span> 방문한다는 점이 달라요. 버튼을 눌러 방문 순서 번호가 DFS 때와 어떻게 다르게 매겨지는지 비교해보세요! (가로 스크롤 가능)'}</p>
+          <div id="ptree-container"></div>
+          <p class="font-bold text-gray-800 mt-5 mb-1">🎮 직접 풀어보기</p>
+          <p class="text-base text-gray-500 mb-3">아래 퍼즐은 매번 랜덤으로 섞여요. 숫자를 클릭해서 1~8 순서로 맞춰보세요!</p>
+          <div id="spgame-container"></div>
+        </div>
+        ${isDfs ? `
+        <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <h3 class="text-lg font-bold text-gray-800">🚣 DFS로 문제 풀기: 강 건너기 퍼즐</h3>
+            <a href="https://chamsaeda.github.io/river-crossing-puzzle/" target="_blank" rel="noopener noreferrer" class="text-sm font-bold text-blue-600 bg-blue-50 border border-blue-200 px-2 py-1 rounded-md hover:bg-blue-100">🎮 직접 플레이하기</a>
+          </div>
+          <p class="text-base text-gray-500 mb-3">농부가 양, 늑대, 양배추를 데리고 한 번에 한 가지만 배에 태워 강을 건너야 해요. 단계 버튼을 눌러 DFS가 찾은 경로를 확인해보세요.</p>
+          <div id="river-container"></div>
+        </div>` : ''}
+        <div class="grid md:grid-cols-2 gap-4">
+          ${isDfs ? `
+            <div class="bg-green-50 border-2 border-green-200 rounded-xl p-4"><p class="font-bold text-green-700 mb-1">👍 장점</p><p class="text-base text-gray-700">메모리 소모가 적어요.</p></div>
+            <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4"><p class="font-bold text-red-700 mb-1">👎 단점</p><p class="text-base text-gray-700">최단 경로를 보장하지 못해요. 해답이 없는 깊은 길로 빠지면 헤어나오지 못할 수도 있어요.</p></div>`
+          : `
+            <div class="bg-green-50 border-2 border-green-200 rounded-xl p-4"><p class="font-bold text-green-700 mb-1">👍 장점: 최단 경로 보장</p><p class="text-base text-gray-700">목적지가 얕은 곳에 있다면, 가장 빠르게 최적의 길을 100% 찾아내요.</p></div>
+            <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4"><p class="font-bold text-red-700 mb-1">👎 단점: 메모리 과다 소모</p><p class="text-base text-gray-700">깊이가 깊어질수록 기억해야 할 분기점이 기하급수적으로 늘어나 시스템이 느려질 수 있어요.</p></div>`}
+        </div>
+        ${!isDfs ? `
+        <div class="bg-gradient-to-r from-slate-50 to-blue-50 p-5 rounded-xl border border-gray-200">
+          <h3 class="text-lg font-bold text-gray-800 mb-3">⚖️ DFS vs BFS 한눈에 비교</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-base text-center border-collapse">
+              <thead><tr class="bg-gray-100"><th class="p-2 border border-gray-200"></th><th class="p-2 border border-gray-200 text-blue-700">DFS (깊이 우선)</th><th class="p-2 border border-gray-200 text-green-700">BFS (너비 우선)</th></tr></thead>
+              <tbody>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">탐색 방향</td><td class="p-2 border border-gray-200">수직적 (우물 파기)</td><td class="p-2 border border-gray-200">수평적 (물결 형태)</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">핵심 원리</td><td class="p-2 border border-gray-200">갈림길에서 한쪽으로 끝까지 직진 후 막히면 돌아옴</td><td class="p-2 border border-gray-200">동일 깊이를 싹쓸이하며 탐색</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">자료구조</td><td class="p-2 border border-gray-200">스택 (Stack)</td><td class="p-2 border border-gray-200">큐 (Queue)</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">최단 경로</td><td class="p-2 border border-gray-200">보장 안 됨</td><td class="p-2 border border-gray-200">100% 보장</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">메모리</td><td class="p-2 border border-gray-200">적게 사용</td><td class="p-2 border border-gray-200">많이 사용</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>` : ''}
+      </div>`;
+    mountTreeVisualizer(el.querySelector('#tv-container'), mode);
+    mountPuzzleTreeSvg(el.querySelector('#ptree-container'), isDfs ? 'indigo' : 'green', mode);
+    mountSlidingPuzzleGame(el.querySelector('#spgame-container'));
+    if (isDfs) mountRiverCrossing(el.querySelector('#river-container'));
+    return;
+  }
+
+  if (activeTab === 'informed') {
+    el.innerHTML = `
+      <div class="slide-in space-y-6">
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300"><p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p><p class="text-base text-gray-700">카드를 클릭하면 각 정보 이용 탐색 알고리즘의 자세한 설명을 볼 수 있어요.</p></div>
+        <div class="bg-gradient-to-r from-amber-50 to-yellow-50 p-6 rounded-xl border-2 border-amber-200">
+          <h2 class="text-xl font-bold text-amber-900 mb-2">🚧 정보 없는 탐색의 한계</h2>
+          <p class="text-base text-gray-700 leading-relaxed mb-3">DFS나 BFS처럼 무작정 길을 찾는 방식을 <span class="font-bold">맹목적 탐색</span>이라고 해요. 만약 경우의 수가 수억 개가 넘는다면? 가장 빠른 컴퓨터도 길을 잃고 지쳐버려요.</p>
+          <div class="bg-white p-4 rounded-lg shadow-sm"><p class="text-base text-gray-700">해결책: 목표까지 얼마나 남았는지 알려주는 <span class="font-bold text-amber-600">'힌트(정보)'</span>가 필요해요! 이 힌트를 <span class="font-bold text-amber-600"> 휴리스틱(Heuristic)</span>이라고 불러요. 경험을 통해 얻은 지식이나 직감, 어림짐작을 뜻해요. 완벽한 정답은 아니어도, 정답에 가까운 길을 빠르게 찾도록 도와줘요!</p></div>
+        </div>
+        <div class="bg-gradient-to-r from-slate-50 to-indigo-50 p-5 rounded-xl border border-indigo-200">
+          <h3 class="text-lg font-bold text-gray-800 mb-3">📊 목표까지 얼마나 남았지? (평가 함수)</h3>
+          <p class="text-base text-gray-700 leading-relaxed">평가 함수(Evaluation Function)는 휴리스틱(힌트)을 수학적으로 계산하는 AI의 두뇌예요. '현재 위치에서 목표까지 얼마나 가까운가?'를 점수로 평가해서, 점수가 가장 좋은 노드만 골라 탐색하므로 쓸데없는 길은 과감히 버릴 수 있어요!</p>
+        </div>
+        <div class="grid md:grid-cols-3 gap-4">
+          ${heuristicCards.map((h, i) => {
+            const c = getColor(h.color);
+            const open = openHeur === i;
+            return `
+              <div data-heur="${i}" class="cursor-pointer transition-all duration-300 hover:scale-105 ${open ? 'ring-4 ring-indigo-300' : ''}">
+                <div class="${c.bg} border-2 ${c.border} p-5 rounded-xl h-full shadow-sm">
+                  <div class="flex items-center gap-2 mb-2">
+                    <span class="w-7 h-7 rounded-full ${c.btn} text-white flex items-center justify-center text-base font-bold">${h.num}</span>
+                    <span class="text-3xl">${h.emoji}</span>
+                  </div>
+                  <h4 class="font-bold text-lg ${c.text} mb-2">${h.name}</h4>
+                  <p class="text-base text-gray-700 leading-relaxed">${h.desc}</p>
+                  ${!open ? `<p class="text-base text-indigo-600 font-bold mt-2">👆 클릭해서 자세히 보기</p>` : `
+                    <div class="slide-in bg-white p-3 rounded-lg mt-3 shadow-sm">
+                      <p class="text-base text-gray-700 leading-relaxed mb-2">${h.detail}</p>
+                      <p class="text-base font-bold ${c.accent}">💬 ${h.tip}</p>
+                    </div>`}
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+        <div class="bg-gradient-to-r from-slate-50 to-blue-50 p-5 rounded-xl border border-gray-200">
+          <h3 class="text-lg font-bold text-gray-800 mb-3">⚖️ 맹목적 탐색 vs 정보 이용 탐색</h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-base text-center border-collapse">
+              <thead><tr class="bg-gray-100"><th class="p-2 border border-gray-200"></th><th class="p-2 border border-gray-200 text-red-600">맹목적 탐색 (무정보 탐색)</th><th class="p-2 border border-gray-200 text-green-700">정보 이용 탐색 (휴리스틱 탐색)</th></tr></thead>
+              <tbody>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">특징</td><td class="p-2 border border-gray-200">사전 정보 없이 정해진 규칙에 따라 모든 상태를 탐색</td><td class="p-2 border border-gray-200">정보를 활용해 지능적으로 그래프의 일부만 빠르게 탐색</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">비유</td><td class="p-2 border border-gray-200">미로를 눈 감고 한쪽 벽만 짚으며 걷기</td><td class="p-2 border border-gray-200">나침반의 방향을 보며 목표물을 향해 걷기</td></tr>
+                <tr><td class="p-2 border border-gray-200 font-bold bg-gray-50">종류</td><td class="p-2 border border-gray-200">DFS, BFS</td><td class="p-2 border border-gray-200">언덕 등반, 최상 우선 탐색, A*</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>`;
+    el.querySelectorAll('[data-heur]').forEach(card => {
+      card.onclick = () => {
+        const i = parseInt(card.dataset.heur, 10);
+        openHeur = (openHeur === i) ? null : i;
+        renderTabContent();
+      };
+    });
+    return;
+  }
+
+  if (activeTab === 'astar') {
+    el.innerHTML = `
+      <div class="slide-in space-y-6">
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300"><p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p><p class="text-base text-gray-700">한비네 집에서 지아네 집까지, f(n) 점수를 비교하며 직접 최적의 길을 찾아보세요!</p></div>
+        <div class="bg-amber-50 border-2 border-amber-300 rounded-xl p-5">
+          <h2 class="text-xl font-bold text-amber-900 mb-2">⭐ A* 알고리즘 실전: 한비네 집에서 지아네 집까지</h2>
+          <p class="text-base text-gray-700 leading-relaxed">목표: 평가 점수 f(n) = g(n) + h(n)이 가장 낮은(짧은) 최적의 경로를 찾아라!<br/>g(n) = 시작점부터 현재까지 실제로 걸어온 거리, h(n) = 현재 위치에서 목적지까지 예상되는 거리(휴리스틱)예요.</p>
+        </div>
+        <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-gray-800 mb-2">🗺️ 전체 지도 한눈에 보기</h3>
+          <div id="astarmap-container"></div>
+          <p class="text-base text-gray-500 mt-2">위 지도를 먼저 살펴본 다음, 아래에서 직접 최적의 경로를 찾아보세요!</p>
+        </div>
+        <div id="astargame-container"></div>
+      </div>`;
+    mountAStarIllustratedMap(el.querySelector('#astarmap-container'));
+    mountAStarGame(el.querySelector('#astargame-container'));
+    return;
+  }
+
+  if (activeTab === 'hillclimb') {
+    el.innerHTML = `
+      <div class="slide-in space-y-6">
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300"><p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p><p class="text-base text-gray-700">앞서 DFS·BFS에서 썼던 것과 똑같은 8-퍼즐로, 이번엔 언덕 등반 탐색이 어떻게 움직이는지 직접 예측해보며 체험해요!</p></div>
+        ${informedHeuristicExplainHtml()}
+        ${informedConceptCardHtml('orange', '⛰️', '언덕 등반 탐색 (Hill Climbing)', `<p>눈을 감고 언덕을 오른다고 상상해보세요. <b>발을 뻗어 닿는 이웃 자리들</b>만 확인할 수 있어요. 그중 지금보다 더 높은(=목표에 더 가까운) 곳이 있으면 그쪽으로 한 걸음 이동하고, 없으면 "여기가 정상이다"라고 믿고 멈춰요. <b>지나온 길 전체를 기억하지 않기 때문에</b> 속도는 빠르지만, 진짜 정상이 아닌데도 멈춰버리는 "지역 최적점" 함정에 잘 빠져요.</p>`)}
+        <div id="hillclimb-container"></div>
+      </div>`;
+    mountHillClimbDemo(el.querySelector('#hillclimb-container'));
+    return;
+  }
+
+  if (activeTab === 'bestfirst' || activeTab === 'astarpuzzle') {
+    const isAstar = activeTab === 'astarpuzzle';
+    el.innerHTML = `
+      <div class="slide-in space-y-6">
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300"><p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p><p class="text-base text-gray-700">${isAstar ? '같은 8-퍼즐로 A*를 체험해요. 이번엔 g(n)과 h(n)을 더한 f(n)이 가장 작은 노드를 예측해보세요!' : '같은 8-퍼즐로 이번엔 최상 우선 탐색을 체험해요. OPEN 목록에서 다음에 확장할 노드를 예측해보세요!'}</p></div>
+        ${informedHeuristicExplainHtml()}
+        ${isAstar
+          ? informedConceptCardHtml('amber', '⭐', 'A* 탐색 (A-Star)', `<p>최상 우선 탐색처럼 OPEN 목록 전체를 보되, <b>f(n) = g(n) + h(n)</b>이라는 더 공정한 점수를 써요. g(n)은 <b>지금까지 실제로 걸어온 거리</b>, h(n)은 <b>목표까지 남았을 것으로 예상되는 거리</b>예요. 이미 많이 걸어온 길은 g가 커서 점수가 나빠지고, 아직 안 가본 좋아 보이는 길은 h만 반영되니까, 두 정보를 같이 저울질해서 <b>가장 균형 잡힌 선택</b>을 해요. 이 덕분에 A*는 조건만 맞으면 항상 최적(가장 짧은) 경로를 찾아줘요.</p>`)
+          : informedConceptCardHtml('teal', '🔭', '최상 우선 탐색 (Best-First Search)', `<p>망원경으로 지금까지 발견한 <b>모든 후보 지점(OPEN 목록)</b>을 한눈에 살펴보고, 그중 <b>평가 함수 f(n) = h(n)이 가장 작아 보이는 곳</b>을 골라 그쪽으로 순간이동해요. 언덕 등반과 달리 예전에 발견해 둔 다른 후보로도 언제든 돌아갈 수 있어서 지역 최적점에 잘 안 빠져요. 하지만 <b>지금까지 얼마나 걸어왔는지는 전혀 신경 쓰지 않기</b> 때문에, f가 낮아 보이는 먼 길로 돌아가 버릴 수 있어요.</p>`)}
+        <div id="frontier-container"></div>
+      </div>`;
+    mountFrontierDemo(el.querySelector('#frontier-container'), isAstar ? 'astar' : 'best');
+    return;
+  }
+
+  if (activeTab === 'compare3') {
+    el.innerHTML = `
+      <div class="slide-in space-y-6">
+        <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300"><p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p><p class="text-base text-gray-700">언덕 등반, 최상 우선 탐색, A* 세 가지를 표로 정리해서 비교해봐요.</p></div>
+        <div id="compare3-container"></div>
+      </div>`;
+    mountInformedCompareTab(el.querySelector('#compare3-container'));
+    return;
+  }
+
+  if (activeTab === 'quiz') {
+    const answeredCount = Object.keys(quizAnswers).length;
+    el.innerHTML = `
+      <div class="slide-in space-y-5">
+        <div class="bg-gradient-to-r from-indigo-50 to-violet-50 p-4 rounded-lg border border-indigo-200 flex items-center justify-between">
+          <div><p class="font-bold text-indigo-900">🎯 오늘 배운 내용을 확인해봐요!</p><p class="text-base text-gray-600">보기를 클릭하면 바로 정답을 알 수 있어요.</p></div>
+          ${answeredCount > 0 ? `<button id="quiz-retry-all" class="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-lg font-bold text-base">🔄 다시 풀기</button>` : ''}
+        </div>
+        <div class="flex gap-2">
+          ${quizData.map(q => `<div class="h-2 flex-1 rounded-full transition-all duration-500 ${quizAnswers[q.id] !== undefined ? (quizAnswers[q.id] === q.ans ? 'bg-green-500' : 'bg-red-400') : 'bg-gray-200'}"></div>`).join('')}
+        </div>
+        ${quizData.map(q => {
+          const answered = quizAnswers[q.id] !== undefined;
+          return `
+            <div class="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm ${shakeId === q.id ? 'shake' : ''}">
+              <p class="text-base font-bold text-indigo-600 mb-2">Q${q.id} / ${quizData.length}</p>
+              <p class="text-base font-bold text-gray-800 mb-4">${q.q}</p>
+              <div class="space-y-2 mb-3">
+                ${q.opts.map((opt, idx) => {
+                  let style = 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300';
+                  if (answered) {
+                    if (idx === q.ans) style = 'bg-green-50 border-green-400 text-green-800 font-bold';
+                    else if (idx === quizAnswers[q.id]) style = 'bg-red-50 border-red-400 text-red-700';
+                    else style = 'bg-gray-50 border-gray-200 text-gray-400';
+                  }
+                  return `
+                    <button data-quiz="${q.id}" data-idx="${idx}" ${answered ? 'disabled' : ''} class="w-full text-left px-4 py-3 rounded-lg border-2 text-base transition-all ${style} ${answered ? 'cursor-default' : 'cursor-pointer'}">
+                      <span class="font-bold mr-2">${['①','②','③','④'][idx]}</span>${opt}
+                      ${answered && idx === q.ans ? `<span class="ml-2">✅</span>` : ''}
+                      ${answered && idx === quizAnswers[q.id] && idx !== q.ans ? `<span class="ml-2">❌</span>` : ''}
+                    </button>`;
+                }).join('')}
+              </div>
+              ${answered ? `
+                <div class="p-3 rounded-lg text-base leading-relaxed ${quizAnswers[q.id] === q.ans ? 'bg-green-50 border border-green-300 text-green-800' : 'bg-orange-50 border border-orange-300 text-orange-800'}">
+                  ${quizAnswers[q.id] === q.ans ? '🎉 정답이에요! ' : '💡 정답 설명: '}${q.expl}
+                </div>` : ''}
+            </div>`;
+        }).join('')}
+        ${answeredCount === quizData.length ? `
+          <div class="slide-in bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-xl border-2 border-indigo-300 text-center">
+            <div class="text-5xl mb-3">${calcScore() === quizData.length ? '🏆' : calcScore() >= 4 ? '🌟' : calcScore() >= 2 ? '👍' : '📚'}</div>
+            <p class="text-2xl font-bold text-indigo-800 mb-2">${calcScore()} / ${quizData.length} 점</p>
+            <p class="text-base text-gray-600">${calcScore() === quizData.length ? '완벽해요! 탐색 알고리즘 마스터예요! 🏆' : calcScore() >= 4 ? '잘했어요! 거의 다 맞혔네요 👍' : calcScore() >= 2 ? '조금만 더 복습해봐요! 💪' : '다시 한번 처음부터 배워봐요! 📖'}</p>
+          </div>` : ''}
+      </div>`;
+
+    el.querySelectorAll('[data-quiz]').forEach(btn => {
+      btn.onclick = () => {
+        const qid = parseInt(btn.dataset.quiz, 10);
+        const idx = parseInt(btn.dataset.idx, 10);
+        if (quizAnswers[qid] !== undefined) return;
+        const q = quizData.find(q => q.id === qid);
+        if (idx !== q.ans) { shakeId = qid; setTimeout(() => { shakeId = null; renderTabContent(); }, 400); }
+        quizAnswers = { ...quizAnswers, [qid]: idx };
+        renderTabContent();
+      };
+    });
+    const retryBtn = el.querySelector('#quiz-retry-all');
+    if (retryBtn) retryBtn.onclick = () => { quizAnswers = {}; renderTabContent(); };
+    return;
+  }
+}
+
+/* ═══════════════════════════════════════════
+   초기 실행
+═══════════════════════════════════════════ */
+renderHeader();
+renderTabButtons();
+renderTabContent();
+
+</script>
+</body>
+</html>
