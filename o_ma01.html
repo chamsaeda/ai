@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>기계학습 데이터 전처리 체험</title>
+  <style>
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+      background: linear-gradient(135deg, #065f46 0%, #0f766e 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    @keyframes bounceOnce {
+      0%, 100% { transform: translateY(0) translateX(-50%); }
+      50% { transform: translateY(-10px) translateX(-50%); }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in { animation: slideIn 0.4s ease-out; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-5px); }
+      40%,80% { transform: translateX(5px); }
+    }
+    .shake { animation: shake 0.4s ease; }
+    @keyframes popIn {
+      0%   { transform: scale(0.5); opacity: 0; }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pop-in { animation: popIn 0.35s ease-out; }
+    @keyframes pulseGlow {
+      0%,100% { filter: drop-shadow(0 0 0px currentColor); }
+      50%     { filter: drop-shadow(0 0 8px currentColor); }
+    }
+    .pulse-glow { animation: pulseGlow 1s ease-in-out infinite; }
+  </style>
+  <style>
+*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.19 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #e5e7eb}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0}fieldset,legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder,textarea::-moz-placeholder{opacity:1;color:#9ca3af}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.absolute{position:absolute}.relative{position:relative}.-top-10{top:-2.5rem}.left-1\/2{left:50%}.z-50{z-index:50}.mx-auto{margin-left:auto;margin-right:auto}.mb-1{margin-bottom:.25rem}.mb-2{margin-bottom:.5rem}.mb-3{margin-bottom:.75rem}.mb-4{margin-bottom:1rem}.ml-2{margin-left:.5rem}.mr-2{margin-right:.5rem}.mt-1{margin-top:.25rem}.mt-2{margin-top:.5rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}.inline-block{display:inline-block}.flex{display:flex}.table{display:table}.grid{display:grid}.h-2{height:.5rem}.w-64{width:16rem}.w-full{width:100%}.min-w-full{min-width:100%}.max-w-7xl{max-width:80rem}.max-w-md{max-width:28rem}.max-w-xs{max-width:20rem}.flex-1{flex:1 1 0%}.border-collapse{border-collapse:collapse}.-translate-x-1\/2{--tw-translate-x:-50%}.-translate-x-1\/2,.rotate-180{transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.rotate-180{--tw-rotate:180deg}.transform{transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-default{cursor:default}.cursor-pointer{cursor:pointer}.select-none{-webkit-user-select:none;-moz-user-select:none;user-select:none}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-1{gap:.25rem}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-4{gap:1rem}.gap-5{gap:1.25rem}.space-y-1>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.25rem*var(--tw-space-y-reverse))}.space-y-2>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.5rem*var(--tw-space-y-reverse))}.space-y-3>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.75rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.75rem*var(--tw-space-y-reverse))}.space-y-5>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.25rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.25rem*var(--tw-space-y-reverse))}.space-y-6>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(1.5rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(1.5rem*var(--tw-space-y-reverse))}.overflow-hidden{overflow:hidden}.overflow-x-auto{overflow-x:auto}.whitespace-nowrap{white-space:nowrap}.rounded-2xl{border-radius:1rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}.rounded-xl{border-radius:.75rem}.border{border-width:1px}.border-2{border-width:2px}.border-b{border-bottom-width:1px}.border-l-4{border-left-width:4px}.border-t{border-top-width:1px}.border-emerald-200{--tw-border-opacity:1;border-color:rgb(167 243 208/var(--tw-border-opacity,1))}.border-emerald-300{--tw-border-opacity:1;border-color:rgb(110 231 183/var(--tw-border-opacity,1))}.border-emerald-500{--tw-border-opacity:1;border-color:rgb(16 185 129/var(--tw-border-opacity,1))}.border-emerald-700{--tw-border-opacity:1;border-color:rgb(4 120 87/var(--tw-border-opacity,1))}.border-gray-100{--tw-border-opacity:1;border-color:rgb(243 244 246/var(--tw-border-opacity,1))}.border-gray-200{--tw-border-opacity:1;border-color:rgb(229 231 235/var(--tw-border-opacity,1))}.border-green-300{--tw-border-opacity:1;border-color:rgb(134 239 172/var(--tw-border-opacity,1))}.border-green-400{--tw-border-opacity:1;border-color:rgb(74 222 128/var(--tw-border-opacity,1))}.border-indigo-200{--tw-border-opacity:1;border-color:rgb(199 210 254/var(--tw-border-opacity,1))}.border-orange-300{--tw-border-opacity:1;border-color:rgb(253 186 116/var(--tw-border-opacity,1))}.border-red-400{--tw-border-opacity:1;border-color:rgb(248 113 113/var(--tw-border-opacity,1))}.border-rose-200{--tw-border-opacity:1;border-color:rgb(254 205 211/var(--tw-border-opacity,1))}.border-rose-300{--tw-border-opacity:1;border-color:rgb(253 164 175/var(--tw-border-opacity,1))}.border-sky-200{--tw-border-opacity:1;border-color:rgb(186 230 253/var(--tw-border-opacity,1))}.border-teal-200{--tw-border-opacity:1;border-color:rgb(153 246 228/var(--tw-border-opacity,1))}.border-yellow-300{--tw-border-opacity:1;border-color:rgb(253 224 71/var(--tw-border-opacity,1))}.bg-amber-100{--tw-bg-opacity:1;background-color:rgb(254 243 199/var(--tw-bg-opacity,1))}.bg-emerald-100{--tw-bg-opacity:1;background-color:rgb(209 250 229/var(--tw-bg-opacity,1))}.bg-emerald-200{--tw-bg-opacity:1;background-color:rgb(167 243 208/var(--tw-bg-opacity,1))}.bg-emerald-50{--tw-bg-opacity:1;background-color:rgb(236 253 245/var(--tw-bg-opacity,1))}.bg-emerald-600{--tw-bg-opacity:1;background-color:rgb(5 150 105/var(--tw-bg-opacity,1))}.bg-gray-100{--tw-bg-opacity:1;background-color:rgb(243 244 246/var(--tw-bg-opacity,1))}.bg-gray-200{--tw-bg-opacity:1;background-color:rgb(229 231 235/var(--tw-bg-opacity,1))}.bg-gray-50{--tw-bg-opacity:1;background-color:rgb(249 250 251/var(--tw-bg-opacity,1))}.bg-green-50{--tw-bg-opacity:1;background-color:rgb(240 253 244/var(--tw-bg-opacity,1))}.bg-green-500{--tw-bg-opacity:1;background-color:rgb(34 197 94/var(--tw-bg-opacity,1))}.bg-indigo-50{--tw-bg-opacity:1;background-color:rgb(238 242 255/var(--tw-bg-opacity,1))}.bg-orange-50{--tw-bg-opacity:1;background-color:rgb(255 247 237/var(--tw-bg-opacity,1))}.bg-red-100{--tw-bg-opacity:1;background-color:rgb(254 226 226/var(--tw-bg-opacity,1))}.bg-red-400{--tw-bg-opacity:1;background-color:rgb(248 113 113/var(--tw-bg-opacity,1))}.bg-red-50{--tw-bg-opacity:1;background-color:rgb(254 242 242/var(--tw-bg-opacity,1))}.bg-rose-100{--tw-bg-opacity:1;background-color:rgb(255 228 230/var(--tw-bg-opacity,1))}.bg-rose-50{--tw-bg-opacity:1;background-color:rgb(255 241 242/var(--tw-bg-opacity,1))}.bg-sky-100{--tw-bg-opacity:1;background-color:rgb(224 242 254/var(--tw-bg-opacity,1))}.bg-sky-50{--tw-bg-opacity:1;background-color:rgb(240 249 255/var(--tw-bg-opacity,1))}.bg-teal-200{--tw-bg-opacity:1;background-color:rgb(153 246 228/var(--tw-bg-opacity,1))}.bg-teal-50{--tw-bg-opacity:1;background-color:rgb(240 253 250/var(--tw-bg-opacity,1))}.bg-white{--tw-bg-opacity:1;background-color:rgb(255 255 255/var(--tw-bg-opacity,1))}.bg-white\/10{background-color:hsla(0,0%,100%,.1)}.bg-yellow-100{--tw-bg-opacity:1;background-color:rgb(254 249 195/var(--tw-bg-opacity,1))}.bg-yellow-400{--tw-bg-opacity:1;background-color:rgb(250 204 21/var(--tw-bg-opacity,1))}.bg-yellow-50{--tw-bg-opacity:1;background-color:rgb(254 252 232/var(--tw-bg-opacity,1))}.bg-gradient-to-r{background-image:linear-gradient(to right,var(--tw-gradient-stops))}.from-emerald-50{--tw-gradient-from:#ecfdf5 var(--tw-gradient-from-position);--tw-gradient-to:rgba(236,253,245,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-emerald-600{--tw-gradient-from:#059669 var(--tw-gradient-from-position);--tw-gradient-to:rgba(5,150,105,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-emerald-700{--tw-gradient-from:#047857 var(--tw-gradient-from-position);--tw-gradient-to:rgba(4,120,87,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-rose-50{--tw-gradient-from:#fff1f2 var(--tw-gradient-from-position);--tw-gradient-to:rgba(255,241,242,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-sky-50{--tw-gradient-from:#f0f9ff var(--tw-gradient-from-position);--tw-gradient-to:rgba(240,249,255,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-sky-600{--tw-gradient-from:#0284c7 var(--tw-gradient-from-position);--tw-gradient-to:rgba(2,132,199,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.from-teal-50{--tw-gradient-from:#f0fdfa var(--tw-gradient-from-position);--tw-gradient-to:rgba(240,253,250,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.to-emerald-50{--tw-gradient-to:#ecfdf5 var(--tw-gradient-to-position)}.to-emerald-600{--tw-gradient-to:#059669 var(--tw-gradient-to-position)}.to-orange-50{--tw-gradient-to:#fff7ed var(--tw-gradient-to-position)}.to-rose-50{--tw-gradient-to:#fff1f2 var(--tw-gradient-to-position)}.to-teal-50{--tw-gradient-to:#f0fdfa var(--tw-gradient-to-position)}.to-teal-600{--tw-gradient-to:#0d9488 var(--tw-gradient-to-position)}.to-teal-700{--tw-gradient-to:#0f766e var(--tw-gradient-to-position)}.p-2{padding:.5rem}.p-3{padding:.75rem}.p-4{padding:1rem}.p-5{padding:1.25rem}.p-6{padding:1.5rem}.px-2{padding-left:.5rem;padding-right:.5rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-4{padding-left:1rem;padding-right:1rem}.px-5{padding-left:1.25rem;padding-right:1.25rem}.py-0\.5{padding-top:.125rem;padding-bottom:.125rem}.py-1{padding-top:.25rem;padding-bottom:.25rem}.py-1\.5{padding-top:.375rem;padding-bottom:.375rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.py-3{padding-top:.75rem;padding-bottom:.75rem}.text-left{text-align:left}.text-center{text-align:center}.text-2xl{font-size:1.5rem;line-height:2rem}.text-3xl{font-size:1.875rem;line-height:2.25rem}.text-5xl{font-size:3rem;line-height:1}.text-base{font-size:1rem;line-height:1.5rem}.text-lg{font-size:1.125rem;line-height:1.75rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xl{font-size:1.25rem;line-height:1.75rem}.text-xs{font-size:.75rem;line-height:1rem}.font-bold{font-weight:700}.leading-relaxed{line-height:1.625}.text-amber-700{--tw-text-opacity:1;color:rgb(180 83 9/var(--tw-text-opacity,1))}.text-emerald-100{--tw-text-opacity:1;color:rgb(209 250 229/var(--tw-text-opacity,1))}.text-emerald-50{--tw-text-opacity:1;color:rgb(236 253 245/var(--tw-text-opacity,1))}.text-emerald-500{--tw-text-opacity:1;color:rgb(16 185 129/var(--tw-text-opacity,1))}.text-emerald-600{--tw-text-opacity:1;color:rgb(5 150 105/var(--tw-text-opacity,1))}.text-emerald-700{--tw-text-opacity:1;color:rgb(4 120 87/var(--tw-text-opacity,1))}.text-emerald-800{--tw-text-opacity:1;color:rgb(6 95 70/var(--tw-text-opacity,1))}.text-emerald-900{--tw-text-opacity:1;color:rgb(6 78 59/var(--tw-text-opacity,1))}.text-gray-300{--tw-text-opacity:1;color:rgb(209 213 219/var(--tw-text-opacity,1))}.text-gray-400{--tw-text-opacity:1;color:rgb(156 163 175/var(--tw-text-opacity,1))}.text-gray-500{--tw-text-opacity:1;color:rgb(107 114 128/var(--tw-text-opacity,1))}.text-gray-600{--tw-text-opacity:1;color:rgb(75 85 99/var(--tw-text-opacity,1))}.text-gray-700{--tw-text-opacity:1;color:rgb(55 65 81/var(--tw-text-opacity,1))}.text-gray-800{--tw-text-opacity:1;color:rgb(31 41 55/var(--tw-text-opacity,1))}.text-gray-900{--tw-text-opacity:1;color:rgb(17 24 39/var(--tw-text-opacity,1))}.text-green-600{--tw-text-opacity:1;color:rgb(22 163 74/var(--tw-text-opacity,1))}.text-green-700{--tw-text-opacity:1;color:rgb(21 128 61/var(--tw-text-opacity,1))}.text-green-800{--tw-text-opacity:1;color:rgb(22 101 52/var(--tw-text-opacity,1))}.text-indigo-500{--tw-text-opacity:1;color:rgb(99 102 241/var(--tw-text-opacity,1))}.text-indigo-700{--tw-text-opacity:1;color:rgb(67 56 202/var(--tw-text-opacity,1))}.text-indigo-800{--tw-text-opacity:1;color:rgb(55 48 163/var(--tw-text-opacity,1))}.text-orange-800{--tw-text-opacity:1;color:rgb(154 52 18/var(--tw-text-opacity,1))}.text-red-500{--tw-text-opacity:1;color:rgb(239 68 68/var(--tw-text-opacity,1))}.text-red-600{--tw-text-opacity:1;color:rgb(220 38 38/var(--tw-text-opacity,1))}.text-red-700{--tw-text-opacity:1;color:rgb(185 28 28/var(--tw-text-opacity,1))}.text-rose-700{--tw-text-opacity:1;color:rgb(190 18 60/var(--tw-text-opacity,1))}.text-rose-800{--tw-text-opacity:1;color:rgb(159 18 57/var(--tw-text-opacity,1))}.text-rose-900{--tw-text-opacity:1;color:rgb(136 19 55/var(--tw-text-opacity,1))}.text-sky-500{--tw-text-opacity:1;color:rgb(14 165 233/var(--tw-text-opacity,1))}.text-sky-700{--tw-text-opacity:1;color:rgb(3 105 161/var(--tw-text-opacity,1))}.text-sky-800{--tw-text-opacity:1;color:rgb(7 89 133/var(--tw-text-opacity,1))}.text-teal-500{--tw-text-opacity:1;color:rgb(20 184 166/var(--tw-text-opacity,1))}.text-teal-700{--tw-text-opacity:1;color:rgb(15 118 110/var(--tw-text-opacity,1))}.text-teal-800{--tw-text-opacity:1;color:rgb(17 94 89/var(--tw-text-opacity,1))}.text-teal-900{--tw-text-opacity:1;color:rgb(19 78 74/var(--tw-text-opacity,1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.text-yellow-900{--tw-text-opacity:1;color:rgb(113 63 18/var(--tw-text-opacity,1))}.accent-emerald-600{accent-color:#059669}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color)}.shadow-2xl,.shadow-lg{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-lg{--tw-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color),0 4px 6px -4px var(--tw-shadow-color)}.shadow-md{--tw-shadow:0 4px 6px -1px rgba(0,0,0,.1),0 2px 4px -2px rgba(0,0,0,.1);--tw-shadow-colored:0 4px 6px -1px var(--tw-shadow-color),0 2px 4px -2px var(--tw-shadow-color)}.shadow-md,.shadow-sm{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-sm{--tw-shadow:0 1px 2px 0 rgba(0,0,0,.05);--tw-shadow-colored:0 1px 2px 0 var(--tw-shadow-color)}.drop-shadow{--tw-drop-shadow:drop-shadow(0 1px 2px rgba(0,0,0,.1)) drop-shadow(0 1px 1px rgba(0,0,0,.06))}.drop-shadow,.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.transition-all{transition-property:all;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-colors{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.transition-transform{transition-property:transform;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.duration-300{transition-duration:.3s}.duration-500{transition-duration:.5s}.ease-in-out{transition-timing-function:cubic-bezier(.4,0,.2,1)}.hover\:border-emerald-300:hover{--tw-border-opacity:1;border-color:rgb(110 231 183/var(--tw-border-opacity,1))}.hover\:border-emerald-400:hover{--tw-border-opacity:1;border-color:rgb(52 211 153/var(--tw-border-opacity,1))}.hover\:border-rose-200:hover{--tw-border-opacity:1;border-color:rgb(254 205 211/var(--tw-border-opacity,1))}.hover\:border-sky-300:hover{--tw-border-opacity:1;border-color:rgb(125 211 252/var(--tw-border-opacity,1))}.hover\:bg-emerald-50:hover{--tw-bg-opacity:1;background-color:rgb(236 253 245/var(--tw-bg-opacity,1))}.hover\:bg-gray-100:hover{--tw-bg-opacity:1;background-color:rgb(243 244 246/var(--tw-bg-opacity,1))}.hover\:bg-rose-50:hover{--tw-bg-opacity:1;background-color:rgb(255 241 242/var(--tw-bg-opacity,1))}.hover\:bg-teal-50:hover{--tw-bg-opacity:1;background-color:rgb(240 253 250/var(--tw-bg-opacity,1))}.hover\:bg-white\/15:hover{background-color:hsla(0,0%,100%,.15)}.hover\:bg-yellow-50:hover{--tw-bg-opacity:1;background-color:rgb(254 252 232/var(--tw-bg-opacity,1))}.hover\:opacity-90:hover{opacity:.9}.hover\:shadow-lg:hover{--tw-shadow:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -4px rgba(0,0,0,.1);--tw-shadow-colored:0 10px 15px -3px var(--tw-shadow-color),0 4px 6px -4px var(--tw-shadow-color)}.hover\:shadow-lg:hover,.hover\:shadow-xl:hover{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.hover\:shadow-xl:hover{--tw-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px var(--tw-shadow-color)}@media (min-width:640px){.sm\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.sm\:grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}}@media (min-width:768px){.md\:grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.md\:grid-cols-5{grid-template-columns:repeat(5,minmax(0,1fr))}}
+  </style>
+</head>
+<body>
+<div id="root">
+  <div class="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+    <div class="bg-gradient-to-r from-emerald-700 to-teal-700 p-6 text-white">
+      <div class="flex justify-between items-center mb-2">
+        <div class="text-base text-emerald-100">고등학교 인공지능 학습자료</div>
+        <a href="index.html"
+          class="bg-white text-emerald-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-emerald-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+          🏠 홈으로
+        </a>
+      </div>
+      <h1 class="text-3xl font-bold mb-2">🧪 기계학습 데이터 전처리 체험</h1>
+      <p class="text-emerald-100">데이터를 다듬어서 기계학습이 잘 배울 수 있도록 만들어봐요!</p>
+      <div id="goal-box"></div>
+    </div>
+
+    <div id="tab-buttons" class="flex gap-2 p-4 bg-gray-50 border-b border-gray-200 overflow-x-auto"></div>
+
+    <div id="tab-content" class="p-6"></div>
+
+    <div class="p-6 text-center border-t border-gray-100">
+      <p class="text-gray-400 text-sm mb-4">🌱 데이터를 깨끗하게 다듬어야 기계학습이 똑똑해져요!</p>
+      <a href="index.html"
+        class="inline-block bg-gradient-to-r from-emerald-700 to-teal-700 text-white w-64 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-all shadow-lg hover:shadow-xl">
+        🏠 홈으로 돌아가기
+      </a>
+    </div>
+
+  </div>
+</div>
+<script>
+/* ═══════════════════════════════════════════
+   공통 헬퍼
+═══════════════════════════════════════════ */
+function infoBoxHtml(text) {
+  return `<div class="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+    <p class="font-bold text-yellow-900 mb-1">💡 학습 방법</p>
+    <p class="text-base text-gray-700">${text}</p>
+  </div>`;
+}
+
+const CONCEPT_THEMES = {
+  teal: { bg:'bg-teal-50', border:'border-teal-200', text:'text-teal-900' },
+  rose: { bg:'bg-rose-50', border:'border-rose-200', text:'text-rose-900' },
+};
+function conceptCardHtml(icon, title, theme, bodyHtml) {
+  const c = CONCEPT_THEMES[theme];
+  return `<div class="${c.bg} border-2 ${c.border} rounded-xl p-5">
+    <h3 class="text-lg font-bold ${c.text} mb-2">${icon} ${title}</h3>
+    <div class="text-base text-gray-700 leading-relaxed space-y-1">${bodyHtml}</div>
+  </div>`;
+}
+
+/* ═══════════════════════════════════════════
+   전역 상태 & 탭 전환
+═══════════════════════════════════════════ */
+const TABS = [
+  { id:'intro',   label:'🤖 기계학습이란?' },
+  { id:'attr',    label:'🏷️ 데이터 속성' },
+  { id:'rowcol',  label:'🧾 row/column' },
+  { id:'missing', label:'🕳️ 결측치 처리' },
+  { id:'outlier', label:'📍 이상치 처리' },
+  { id:'bias',    label:'⚖️ 데이터 편향성' },
+  { id:'corr',    label:'📈 상관관계' },
+  { id:'quiz',    label:'🎯 퀴즈' },
+];
+let currentTab = 'intro';
+let showGoal = false;
+
+function renderTabButtons() {
+  const el = document.getElementById('tab-buttons');
+  el.innerHTML = TABS.map(t => `
+    <button data-tab="${t.id}" class="px-5 py-2 rounded-lg font-bold text-base transition-all whitespace-nowrap ${
+      currentTab === t.id
+        ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md'
+        : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}">
+      ${t.label}
+    </button>`).join('');
+  el.querySelectorAll('[data-tab]').forEach(btn => {
+    btn.onclick = () => switchTab(btn.dataset.tab);
+  });
+}
+
+function switchTab(id) {
+  if (currentTab === id) return;
+  currentTab = id;
+  renderTabButtons();
+  renderTabContent();
+}
+
+function renderTabContent() {
+  const el = document.getElementById('tab-content');
+  if (currentTab === 'intro')        renderIntroTab(el);
+  else if (currentTab === 'attr')    renderAttributeTab(el);
+  else if (currentTab === 'rowcol')  renderRowColTab(el);
+  else if (currentTab === 'missing') renderMissingTab(el);
+  else if (currentTab === 'outlier') renderOutlierTab(el);
+  else if (currentTab === 'bias')    renderBiasTab(el);
+  else if (currentTab === 'corr')    renderCorrelationTab(el);
+  else if (currentTab === 'quiz')    renderQuizTab(el);
+}
+
+function renderGoalBox() {
+  const el = document.getElementById('goal-box');
+  el.innerHTML = `
+    <button id="goal-toggle-btn" class="w-full bg-white/10 hover:bg-white/15 rounded-lg p-4 mt-4 transition-colors text-left">
+      <div class="flex items-center justify-between">
+        <p class="font-bold">🎯 오늘 우리가 할 수 있게 될 것</p>
+        <span class="text-xl transition-transform duration-300 ${showGoal ? 'rotate-180' : ''}">⌄</span>
+      </div>
+      ${showGoal ? `
+        <div class="slide-in mt-2 space-y-1">
+          <p class="text-emerald-50 text-base">🧠 기계학습이 무엇인지, 전통적 프로그래밍과 어떻게 다른지 설명할 수 있어요.</p>
+          <p class="text-emerald-50 text-base">🏷️ 데이터의 속성·유형·역할(feature/target/meta/skip)을 구분할 수 있어요.</p>
+          <p class="text-emerald-50 text-base">🕳️📍 결측치와 이상치를 찾아 알맞게 처리하는 방법을 체험할 수 있어요.</p>
+          <p class="text-emerald-50 text-base">📈 데이터 편향성과 상관관계의 의미를 이해할 수 있어요.</p>
+        </div>` : ''}
+    </button>`;
+  document.getElementById('goal-toggle-btn').onclick = () => { showGoal = !showGoal; renderGoalBox(); };
+}
+
+/* ═══════════════════════════════════════════
+   탭 1: 기계학습이란?
+═══════════════════════════════════════════ */
+const recoFactors = [
+  { icon:'📺', label:'시청 기록', desc:'사용자의 시청 습관' },
+  { icon:'🧑‍🤝‍🧑', label:'유사한 사용자 데이터', desc:'유사한 사용자의 구매 패턴' },
+  { icon:'🛒', label:'과거 구매', desc:'사용자의 이전 구매 내역' },
+  { icon:'🔎', label:'검색 기록', desc:'사용자의 검색 쿼리' },
+  { icon:'🤖', label:'기계 학습', desc:'데이터 분석을 위한 알고리즘' },
+];
+let introState = { openFactor: null };
+
+function renderIntroTab(el) {
+  el.innerHTML = `
+    <div class="slide-in space-y-6">
+      ${infoBoxHtml('탭을 순서대로 눌러보며 기계학습이 무엇인지, 데이터를 어떻게 다루는지 직접 체험해봐요!')}
+
+      <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl border border-emerald-200">
+        <h2 class="text-xl font-bold text-emerald-900 mb-3">🤔 내 취향을 어떻게 알았지?</h2>
+        <p class="text-base text-gray-600 mb-3">카드를 눌러서 개인화된 추천을 만드는 5가지 요소를 확인해보세요.</p>
+        <div class="grid sm:grid-cols-3 md:grid-cols-5 gap-3">
+          ${recoFactors.map((f, i) => `
+            <button data-factor="${i}" class="p-4 rounded-lg text-center border-2 transition-all ${introState.openFactor === i ? 'bg-emerald-600 border-emerald-700 text-white pop-in' : 'bg-white border-emerald-200 hover:border-emerald-400'}">
+              <div class="text-3xl mb-1">${f.icon}</div>
+              <div class="font-bold text-sm">${f.label}</div>
+              ${introState.openFactor === i ? `<div class="text-xs mt-2 slide-in">${f.desc}</div>` : ''}
+            </button>`).join('')}
+        </div>
+        <div class="bg-emerald-100 p-4 rounded-lg border-l-4 border-emerald-500 mt-4">
+          <p class="text-base text-gray-700 leading-relaxed">이 다섯 가지가 모여 나에게 꼭 맞는 <span class="font-bold text-emerald-700">「개인화된 추천」</span>이 만들어져요!</p>
+        </div>
+      </div>
+
+      ${conceptCardHtml('🧠', '기계학습이란?', 'teal', `
+        <p>데이터를 학습시켜 <b>스스로 규칙을 발견</b>하고, 이를 새로운 데이터에 적용하여 정보를 얻거나 <b>예측</b>하는 기술이에요.</p>
+        <p>사람이 규칙을 하나하나 알려주지 않아도, 컴퓨터가 데이터 속에서 규칙(패턴)을 스스로 찾아내고, 한 번도 본 적 없는 새로운 데이터에 적용해 결과를 예측해요.</p>
+      `)}
+
+      <div class="grid md:grid-cols-2 gap-5">
+        <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-gray-800 mb-2">🧑‍💻 전통적 프로그래밍</h3>
+          <p class="text-base text-gray-600 mb-2 font-bold">Q. 평균 기온이 가장 높은 해는?</p>
+          <p class="text-base text-gray-600">평균 기온 데이터를 모두 비교해 가장 큰 값을 찾은 후, 해당 연도를 출력해요.</p>
+          <p class="text-sm text-gray-400 mt-2">→ 사람이 규칙을 직접 작성</p>
+        </div>
+        <div class="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5">
+          <h3 class="text-lg font-bold text-emerald-800 mb-2">🤖 기계학습 적용</h3>
+          <p class="text-base text-gray-600 mb-2 font-bold">Q. 2050년의 평균 기온은?</p>
+          <p class="text-base text-gray-600">주어진 데이터에 답이 없으니, 기계가 스스로 학습해 규칙을 발견한 후 해답을 찾아요.</p>
+          <p class="text-sm text-emerald-500 mt-2">→ 기계가 규칙을 스스로 발견</p>
+        </div>
+      </div>
+
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">📜 인공지능 · 기계학습 · 딥러닝의 관계</h3>
+        <div class="grid sm:grid-cols-3 gap-4">
+          <div class="bg-sky-50 rounded-lg p-4 border border-sky-200">
+            <p class="text-sm text-sky-500 font-bold">1950's</p>
+            <p class="text-lg font-bold text-sky-800">인공지능 (AI)</p>
+            <p class="text-sm text-gray-600 mt-1">인간이 가진 지적 능력을 컴퓨터로 구현하는 기술</p>
+          </div>
+          <div class="bg-teal-50 rounded-lg p-4 border border-teal-200">
+            <p class="text-sm text-teal-500 font-bold">1980's</p>
+            <p class="text-lg font-bold text-teal-800">기계학습 (ML)</p>
+            <p class="text-sm text-gray-600 mt-1">스스로 학습하여 인공지능의 성능을 향상시키는 기술</p>
+          </div>
+          <div class="bg-indigo-50 rounded-lg p-4 border border-indigo-200">
+            <p class="text-sm text-indigo-500 font-bold">2010's</p>
+            <p class="text-lg font-bold text-indigo-800">딥러닝 (DL)</p>
+            <p class="text-sm text-gray-600 mt-1">인간의 뉴런과 비슷한 인공 신경망으로 정보를 처리</p>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  el.querySelectorAll('[data-factor]').forEach(btn => {
+    btn.onclick = () => {
+      const i = parseInt(btn.dataset.factor, 10);
+      introState.openFactor = (introState.openFactor === i) ? null : i;
+      renderIntroTab(el);
+    };
+  });
+}
+
+/* ═══════════════════════════════════════════
+   탭 2: 데이터 속성 & 유형
+═══════════════════════════════════════════ */
+const typeItems = [
+  { id:1, text:'키 170cm', type:'numeric' },
+  { id:2, text:'좋아하는 계절 (봄/여름/가을/겨울)', type:'categorical' },
+  { id:3, text:'자기소개 문장', type:'text' },
+  { id:4, text:'생일 (2010-05-03)', type:'datetime' },
+  { id:5, text:'국어 점수 92점', type:'numeric' },
+  { id:6, text:'반 (1반 ~ 6반)', type:'categorical' },
+  { id:7, text:'일기 내용', type:'text' },
+  { id:8, text:'알림장 작성 일시', type:'datetime' },
+];
+const typeOptions = [
+  { id:'numeric', label:'수치형' },
+  { id:'categorical', label:'범주형' },
+  { id:'text', label:'문자열형' },
+  { id:'datetime', label:'날짜/시간형' },
+];
+let attrAnswers = {};
+
+function renderAttributeTab(el) {
+  const score = Object.keys(attrAnswers).filter(id => attrAnswers[id] === typeItems.find(t => t.id === Number(id)).type).length;
+  const pairs = [['이름','진누리'],['학번','1004'],['키','160'],['체중','54'],['취미','배드민턴']];
+
+  el.innerHTML = `
+    <div class="slide-in space-y-6">
+      ${infoBoxHtml('표에서 「속성명」은 무엇을 나타내는지, 「속성값」은 실제 값이 무엇인지를 뜻해요. 아래에서 데이터 유형 분류 게임도 해보세요!')}
+
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">🏷️ 데이터 속성: 속성명과 속성값</h3>
+        <div class="grid grid-cols-2 gap-2 max-w-md">
+          ${pairs.map(([n, v]) => `
+            <div class="bg-emerald-50 text-emerald-700 font-bold rounded-lg px-3 py-2 text-center text-sm">${n}</div>
+            <div class="bg-teal-50 text-teal-700 rounded-lg px-3 py-2 text-center text-sm">${v}</div>
+          `).join('')}
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-5 rounded-xl border border-emerald-200">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-lg font-bold text-emerald-900">🎮 데이터 유형 분류 게임</h3>
+          <span class="bg-white px-3 py-1 rounded-full font-bold text-emerald-700 text-sm">점수 ${score} / ${typeItems.length}</span>
+        </div>
+        <div class="space-y-3">
+          ${typeItems.map(item => {
+            const chosen = attrAnswers[item.id];
+            return `
+              <div class="bg-white rounded-lg p-3 shadow-sm">
+                <p class="font-bold text-gray-700 mb-2 text-base">${item.text}</p>
+                <div class="flex flex-wrap gap-2">
+                  ${typeOptions.map(opt => {
+                    let style = 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-300';
+                    if (chosen !== undefined) {
+                      if (opt.id === item.type) style = 'bg-green-50 border-green-400 text-green-800 font-bold';
+                      else if (opt.id === chosen) style = 'bg-red-50 border-red-400 text-red-700';
+                      else style = 'bg-gray-50 border-gray-200 text-gray-300';
+                    }
+                    return `<button data-item="${item.id}" data-opt="${opt.id}" ${chosen !== undefined ? 'disabled' : ''} class="px-3 py-1.5 rounded-lg border-2 text-sm transition-all ${style}">${opt.label}</button>`;
+                  }).join('')}
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+        <h3 class="text-lg font-bold text-gray-800 mb-2">📚 데이터 유형 정리 (Orange3 기준)</h3>
+        <div class="grid sm:grid-cols-2 gap-3 text-base">
+          <p><b class="text-emerald-700">수치형(numeric)</b> — 숫자로 계산됨. 예) 키, 몸무게</p>
+          <p><b class="text-teal-700">범주형(categorical)</b> — 정해진 몇 가지 중 하나. 예) 혈액형, 성별</p>
+          <p><b class="text-sky-700">문자열형(text)</b> — 이름, 설명 등 글</p>
+          <p><b class="text-indigo-700">날짜/시간형(datetime)</b> — 촬영일, 접수일시</p>
+        </div>
+      </div>
+    </div>`;
+
+  el.querySelectorAll('[data-item]').forEach(btn => {
+    btn.onclick = () => {
+      const itemId = Number(btn.dataset.item);
+      const optId = btn.dataset.opt;
+      if (attrAnswers[itemId] !== undefined) return;
+      attrAnswers[itemId] = optId;
+      renderAttributeTab(el);
+    };
+  });
+}
+
+/* ═══════════════════════════════════════════
+   탭 3: row/column, feature/target
+═══════════════════════════════════════════ */
+const sampleData = [
+  { 이름:'가람', 자습시간:9, 점수:99, 이수여부:'이수', 키:168, 발사이즈:229, 구분:'3학년' },
+  { 이름:'나래', 자습시간:9, 점수:98, 이수여부:'이수', 키:167, 발사이즈:249, 구분:'2학년' },
+  { 이름:'다솜', 자습시간:8, 점수:88, 이수여부:'이수', 키:158, 발사이즈:233, 구분:'2학년' },
+  { 이름:'라온', 자습시간:8, 점수:90, 이수여부:'이수', 키:157, 발사이즈:226, 구분:'2학년' },
+];
+const columns = ['이름','자습시간','점수','이수여부','키','발사이즈','구분'];
+const roleCycle = ['미지정','feature','target','meta','skip'];
+const recommendedRoles = { 이름:'meta', 자습시간:'feature', 점수:'target', 이수여부:'feature', 키:'feature', 발사이즈:'feature', 구분:'skip' };
+const roleBadge = { '미지정':'bg-gray-100 text-gray-400', feature:'bg-sky-100 text-sky-700', target:'bg-rose-100 text-rose-700', meta:'bg-amber-100 text-amber-700', skip:'bg-gray-200 text-gray-500' };
+
+let rowColState = {
+  hovered: { type: null, key: null },
+  roles: Object.fromEntries(columns.map(c => [c, '미지정'])),
+  checked: false,
+};
+
+function renderRowColTab(el) {
+  const isHighlighted = (rowIdx, col) =>
+    (rowColState.hovered.type === 'row' && rowColState.hovered.key === rowIdx) ||
+    (rowColState.hovered.type === 'col' && rowColState.hovered.key === col);
+
+  el.innerHTML = `
+    <div class="slide-in space-y-6">
+      ${infoBoxHtml('표의 헤더(열 이름)에 마우스를 올리면 column을, 왼쪽 번호에 올리면 row를 확인할 수 있어요. 아래에서 각 열의 역할(feature/target/meta/skip)도 직접 정해보세요!')}
+
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-5 overflow-x-auto">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">🔍 row와 column, 무엇이 다를까?</h3>
+        <table class="min-w-full text-center text-sm border-collapse">
+          <thead>
+            <tr>
+              <th class="p-2"></th>
+              ${columns.map(col => `
+                <th data-col="${col}" class="p-2 border border-gray-200 font-bold cursor-pointer transition-colors ${rowColState.hovered.type === 'col' && rowColState.hovered.key === col ? 'bg-emerald-200' : 'bg-emerald-50'}">${col}</th>
+              `).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${sampleData.map((row, i) => `
+              <tr data-row="${i}">
+                <td class="p-2 border border-gray-200 font-bold cursor-pointer ${rowColState.hovered.type === 'row' && rowColState.hovered.key === i ? 'bg-teal-200' : 'bg-teal-50'}">${i + 1}</td>
+                ${columns.map(col => `<td class="p-2 border border-gray-200 transition-colors ${isHighlighted(i, col) ? 'bg-yellow-100 font-bold' : ''}">${row[col]}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        <p class="text-sm text-gray-500 mt-2">👉 column = 동일한 속성을 공유하는 열 데이터 / row = 하나의 객체에 대한 전체 데이터 행</p>
+      </div>
+
+      <div class="bg-gradient-to-r from-sky-50 to-rose-50 p-5 rounded-xl border border-sky-200">
+        <h3 class="text-lg font-bold text-gray-800 mb-2">🎯 역할 지정 체험 (feature / target / meta / skip)</h3>
+        <p class="text-base text-gray-600 mb-3">버튼을 눌러 각 열의 역할을 바꿔보세요! (미지정 → feature → target → meta → skip 순서로 반복)</p>
+        <div class="flex flex-wrap gap-3">
+          ${columns.map(col => `
+            <button data-role-col="${col}" class="flex flex-col items-center gap-1 bg-white rounded-lg border-2 border-gray-200 px-4 py-3 hover:border-sky-300 transition-all">
+              <span class="font-bold text-gray-700 text-sm">${col}</span>
+              <span class="px-2 py-0.5 rounded-full text-xs font-bold ${roleBadge[rowColState.roles[col]]}">${rowColState.roles[col]}</span>
+              ${rowColState.checked ? `<span class="text-xs mt-1">${rowColState.roles[col] === recommendedRoles[col] ? '✅' : '❌'}</span>` : ''}
+            </button>
+          `).join('')}
+        </div>
+        <button id="check-roles-btn" class="mt-4 bg-gradient-to-r from-sky-600 to-emerald-600 text-white px-5 py-2 rounded-lg font-bold text-sm hover:opacity-90">정답 확인하기</button>
+        ${rowColState.checked ? `
+          <div class="slide-in bg-white p-4 rounded-lg mt-3 text-base text-gray-700 space-y-1">
+            <p>📌 예시 정답: <b>점수 → target</b>(예측하고 싶은 값), <b>이름 → meta</b>(분석엔 안 쓰지만 출력에 표시), <b>구분(학년) → skip</b>(분석에서 완전히 제외), 나머지는 <b>feature</b>(예측에 사용하는 값)!</p>
+          </div>` : ''}
+      </div>
+
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-4 text-base text-gray-700 grid sm:grid-cols-2 gap-2">
+        <p><span class="font-bold text-sky-700">feature</span> — 독립변수, 영향을 주는 속성</p>
+        <p><span class="font-bold text-rose-700">target</span> — 종속변수, 영향을 받는 속성(예측 대상)</p>
+        <p><span class="font-bold text-amber-700">meta</span> — 분석 작업에서는 제외하지만 출력에는 표시</p>
+        <p><span class="font-bold text-gray-500">skip</span> — 분석 작업에서도 제외하고 출력도 하지 않음</p>
+      </div>
+    </div>`;
+
+  el.querySelectorAll('[data-col]').forEach(th => {
+    th.onmouseenter = () => { rowColState.hovered = { type:'col', key: th.dataset.col }; renderRowColTab(el); };
+    th.onmouseleave = () => { rowColState.hovered = { type:null, key:null }; renderRowColTab(el); };
+  });
+  el.querySelectorAll('[data-row]').forEach(tr => {
+    tr.onmouseenter = () => { rowColState.hovered = { type:'row', key: Number(tr.dataset.row) }; renderRowColTab(el); };
+    tr.onmouseleave = () => { rowColState.hovered = { type:null, key:null }; renderRowColTab(el); };
+  });
+  el.querySelectorAll('[data-role-col]').forEach(btn => {
+    btn.onclick = () => {
+      const col = btn.dataset.roleCol;
+      rowColState.checked = false;
+      const idx = roleCycle.indexOf(rowColState.roles[col]);
+      rowColState.roles[col] = roleCycle[(idx + 1) % roleCycle.length];
+      renderRowColTab(el);
+    };
+  });
+  const checkBtn = el.querySelector('#check-roles-btn');
+  if (checkBtn) checkBtn.onclick = () => { rowColState.checked = true; renderRowColTab(el); };
+}
+
+/* ═══════════════════════════════════════════
+   탭 4: 결측치 처리
+═══════════════════════════════════════════ */
+const missingRaw = [
+  { 이름:'가람', 자습시간:9, 점수:99, 이수여부:'이수', 키:168, 발사이즈:229, 구분:'3학년' },
+  { 이름:'나래', 자습시간:9, 점수:98, 이수여부:'이수', 키:167, 발사이즈:249, 구분:'2학년' },
+  { 이름:'다솜', 자습시간:8, 점수:88, 이수여부:'이수', 키:158, 발사이즈:233, 구분:'2학년' },
+  { 이름:'라온', 자습시간:8, 점수:90, 이수여부:'이수', 키:157, 발사이즈:226, 구분:'2학년' },
+  { 이름:'아람', 자습시간:4, 점수:null, 이수여부:null, 키:155, 발사이즈:218, 구분:'2학년' },
+  { 이름:'아라', 자습시간:2, 점수:20, 이수여부:'미이수', 키:163, 발사이즈:250, 구분:'1학년' },
+  { 이름:'찬솔', 자습시간:0, 점수:10, 이수여부:'미이수', 키:null, 발사이즈:255, 구분:'1학년' },
+  { 이름:'한울', 자습시간:2, 점수:null, 이수여부:null, 키:158, 발사이즈:228, 구분:null },
+];
+const missingCols = ['이름','자습시간','점수','이수여부','키','발사이즈','구분'];
+const numericCols = ['자습시간','점수','키','발사이즈'];
+const categoricalCols = ['이수여부','구분'];
+
+function meanOf(arr) {
+  const n = arr.filter(v => v !== null && v !== undefined);
+  return n.length ? Math.round((n.reduce((a, b) => a + b, 0) / n.length) * 10) / 10 : 0;
+}
+function modeOf(arr) {
+  const counts = {};
+  arr.filter(v => v !== null && v !== undefined).forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  let best = null, bestC = -1;
+  Object.entries(counts).forEach(([k, c]) => { if (c > bestC) { best = k; bestC = c; } });
+  return best;
+}
+
+let missingState = { found: new Set(), method: null };
+
+function renderMissingTab(el) {
+  let totalMissing = 0;
+  missingRaw.forEach(row => missingCols.forEach(c => { if (row[c] === null) totalMissing++; }));
+
+  let processed = null;
+  if (missingState.method === 'delete') {
+    processed = missingRaw.filter(row => missingCols.every(c => row[c] !== null));
+  } else if (missingState.method === 'meanmode') {
+    const means = {}; numericCols.forEach(c => means[c] = meanOf(missingRaw.map(r => r[c])));
+    const modes = {}; categoricalCols.forEach(c => modes[c] = modeOf(missingRaw.map(r => r[c])));
+    processed = missingRaw.map(row => {
+      const newRow = { ...row };
+      missingCols.forEach(c => {
+        if (newRow[c] === null) {
+          if (numericCols.includes(c)) newRow[c] = means[c];
+          else if (categoricalCols.includes(c)) newRow[c] = modes[c];
+        }
+      });
+      return newRow;
+    });
+  } else if (missingState.method === 'zero') {
+    processed = missingRaw.map(row => {
+      const newRow = { ...row };
+      missingCols.forEach(c => { if (newRow[c] === null) newRow[c] = numericCols.includes(c) ? 0 : '미확인'; });
+      return newRow;
+    });
+  }
+
+  const allFound = missingState.found.size >= totalMissing;
+
+  el.innerHTML = `
+    <div class="slide-in space-y-6">
+      ${infoBoxHtml('표에서 빈칸(❓)을 모두 찾아 클릭해보세요! 다 찾으면 결측치 처리 방법을 선택할 수 있어요.')}
+
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-5 overflow-x-auto">
+        <div class="flex justify-between items-center mb-3">
+          <h3 class="text-lg font-bold text-gray-800">🕳️ 결측치 찾기</h3>
+          <span class="bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full font-bold text-sm">${missingState.found.size} / ${totalMissing} 개 발견</span>
+        </div>
+        <table class="min-w-full text-center text-sm border-collapse">
+          <thead><tr>${missingCols.map(c => `<th class="p-2 border border-gray-200 bg-emerald-50 font-bold">${c}</th>`).join('')}</tr></thead>
+          <tbody>
+            ${missingRaw.map((row, i) => `
+              <tr>
+                ${missingCols.map(c => {
+                  const isNull = row[c] === null;
+                  const key = i + '-' + c;
+                  const isFound = missingState.found.has(key);
+                  return `<td data-row="${i}" data-col="${c}" class="p-2 border border-gray-200 cursor-pointer select-none transition-colors ${isNull ? (isFound ? 'bg-red-100 text-red-500 font-bold' : 'bg-gray-50 hover:bg-yellow-50') : ''}">${isNull ? (isFound ? '❓' : '?') : row[c]}</td>`;
+                }).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        ${allFound ? `<p class="text-emerald-600 font-bold mt-3 slide-in">🎉 모든 결측치를 찾았어요! 아래에서 처리 방법을 골라보세요.</p>` : ''}
+      </div>
+
+      ${allFound ? `
+        <div class="slide-in bg-gradient-to-r from-emerald-50 to-teal-50 p-5 rounded-xl border border-emerald-200">
+          <h3 class="text-lg font-bold text-emerald-900 mb-3">🛠️ 결측치 처리 방법 선택</h3>
+          <div class="flex flex-wrap gap-3 mb-4">
+            <button data-method="delete" class="px-4 py-2 rounded-lg font-bold text-sm border-2 ${missingState.method === 'delete' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white border-gray-200 hover:border-emerald-300'}">🗑️ 결측치 있는 행 삭제</button>
+            <button data-method="meanmode" class="px-4 py-2 rounded-lg font-bold text-sm border-2 ${missingState.method === 'meanmode' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white border-gray-200 hover:border-emerald-300'}">📊 평균값 / 최빈값으로 채우기</button>
+            <button data-method="zero" class="px-4 py-2 rounded-lg font-bold text-sm border-2 ${missingState.method === 'zero' ? 'bg-emerald-600 text-white border-emerald-700' : 'bg-white border-gray-200 hover:border-emerald-300'}">0️⃣ 특정값(0 / 미확인)으로 채우기</button>
+          </div>
+          ${processed ? `
+            <div class="overflow-x-auto slide-in">
+              <table class="min-w-full text-center text-sm border-collapse bg-white rounded-lg overflow-hidden">
+                <thead><tr>${missingCols.map(c => `<th class="p-2 border border-gray-200 bg-teal-50 font-bold">${c}</th>`).join('')}</tr></thead>
+                <tbody>
+                  ${processed.map((row, i) => `
+                    <tr>
+                      ${missingCols.map(c => {
+                        const wasNull = missingRaw[i] ? missingRaw[i][c] === null : false;
+                        return `<td class="p-2 border border-gray-200 ${wasNull ? 'bg-yellow-100 font-bold text-emerald-700' : ''}">${row[c]}</td>`;
+                      }).join('')}
+                    </tr>`).join('')}
+                </tbody>
+              </table>
+              <p class="text-sm text-gray-500 mt-2">노란색 칸이 새로 채워지거나 처리된 부분이에요. ${missingState.method === 'delete' ? `(전체 ${missingRaw.length}행 → ${processed.length}행으로 줄었어요)` : ''}</p>
+            </div>` : ''}
+        </div>` : ''}
+    </div>`;
+
+  el.querySelectorAll('td[data-row][data-col]').forEach(td => {
+    td.onclick = () => {
+      const i = Number(td.dataset.row), c = td.dataset.col;
+      if (missingRaw[i][c] === null) {
+        missingState.found.add(i + '-' + c);
+        renderMissingTab(el);
+      }
+    };
+  });
+  el.querySelectorAll('[data-method]').forEach(btn => {
+    btn.onclick = () => { missingState.method = btn.dataset.method; renderMissingTab(el); };
+  });
+}
+
+/* ═══════════════════════════════════════════
+   탭 5: 이상치 처리
+═══════════════════════════════════════════ */
+const outlierConfigs = [
+  {
+    key:'time_score', title:'📍 자습시간 vs 점수',
+    points:[{x:9,y:99},{x:9,y:98},{x:8,y:88},{x:8,y:90},{x:7,y:77},{x:7,y:79},{x:3,y:30},{x:2,y:20},{x:1,y:10},{x:0,y:10},{x:5,y:0}],
+    xLabel:'자습시간(시간)', yLabel:'점수',
+    xDomain:[-0.5,10], yDomain:[-5,105],
+    outlierIdx:10,
+    insight:'자습을 5시간이나 했는데 점수가 0점? 기계학습을 방해하는 명백한 이상치예요!'
+  },
+  {
+    key:'height_foot', title:'📍 키 vs 발사이즈',
+    points:[{x:168,y:229},{x:167,y:249},{x:158,y:233},{x:157,y:226},{x:165,y:234},{x:159,y:235},{x:163,y:250},{x:162,y:235},{x:100,y:270}],
+    xLabel:'키(cm)', yLabel:'발사이즈(mm)',
+    xDomain:[90,175], yDomain:[210,280],
+    outlierIdx:8,
+    insight:'키가 100cm인데 발사이즈가 270mm? 말이 안 되는 값이에요!'
+  },
+];
+let outlierState = {};
+outlierConfigs.forEach(cfg => { outlierState[cfg.key] = { found:false, wrongIdx:null, removed:false }; });
+
+function scatterOutlierHtml(cfg) {
+  const st = outlierState[cfg.key];
+  const W = 460, H = 300, M = 40;
+  const sx = v => M + ((v - cfg.xDomain[0]) / (cfg.xDomain[1] - cfg.xDomain[0])) * (W - 2 * M);
+  const sy = v => H - M - ((v - cfg.yDomain[0]) / (cfg.yDomain[1] - cfg.yDomain[0])) * (H - 2 * M);
+  const displayPoints = st.removed ? cfg.points.filter((_, i) => i !== cfg.outlierIdx) : cfg.points;
+
+  const circles = displayPoints.map(p => {
+    const realIdx = cfg.points.indexOf(p);
+    const isOutlier = realIdx === cfg.outlierIdx;
+    const wrong = st.wrongIdx === realIdx;
+    const isFoundOutlier = st.found && isOutlier;
+    const fill = isFoundOutlier ? '#ef4444' : (wrong ? '#f97316' : '#10b981');
+    const r = isFoundOutlier ? 9 : 6;
+    return `<circle data-key="${cfg.key}" data-idx="${realIdx}" cx="${sx(p.x)}" cy="${sy(p.y)}" r="${r}" fill="${fill}" fill-opacity="${isFoundOutlier ? 1 : 0.75}" stroke="${isFoundOutlier ? '#b91c1c' : 'none'}" stroke-width="2" class="cursor-pointer ${isFoundOutlier ? 'pulse-glow' : ''} ${wrong ? 'shake' : ''}"></circle>`;
+  }).join('');
+
+  return `
+    <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+      <h3 class="text-lg font-bold text-gray-800 mb-2">${cfg.title}</h3>
+      <p class="text-sm text-gray-500 mb-2">점을 클릭해서 「이상치」를 찾아보세요! (자습을 많이 했는데 점수가 이상하거나, 키에 비해 발 크기가 이상한 값)</p>
+      <svg viewBox="0 0 ${W} ${H}" class="w-full max-w-md bg-gray-50 rounded-lg border border-gray-100">
+        <line x1="${M}" y1="${H - M}" x2="${W - M}" y2="${H - M}" stroke="#94a3b8" stroke-width="1"></line>
+        <line x1="${M}" y1="${M}" x2="${M}" y2="${H - M}" stroke="#94a3b8" stroke-width="1"></line>
+        <text x="${W / 2}" y="${H - 8}" text-anchor="middle" font-size="11" fill="#64748b">${cfg.xLabel}</text>
+        <text x="12" y="${H / 2}" text-anchor="middle" font-size="11" fill="#64748b" transform="rotate(-90 12 ${H / 2})">${cfg.yLabel}</text>
+        ${circles}
+      </svg>
+      ${st.found ? `
+        <div class="slide-in mt-3 space-y-2">
+          <p class="text-red-600 font-bold text-sm">🎯 찾았어요! ${cfg.insight}</p>
+          <button data-remove="${cfg.key}" class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:opacity-90">${st.removed ? '이상치 다시 보기' : '이상치 제거하고 보기 →'}</button>
+        </div>` : ''}
+    </div>`;
+}
+
+function renderOutlierTab(el) {
+  el.innerHTML = `
+    <div class="slide-in space-y-6">
+      ${infoBoxHtml('산점도(Scatter Plot)로 데이터를 그려보면, 다른 점들과 멀리 떨어진 값을 쉽게 발견할 수 있어요. 이상한 점을 직접 클릭해서 찾아보세요!')}
+      <div class="grid md:grid-cols-2 gap-5">
+        ${scatterOutlierHtml(outlierConfigs[0])}
+        ${scatterOutlierHtml(outlierConfigs[1])}
+      </div>
+      <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-base text-gray-700">
+        <p class="font-bold text-rose-800 mb-1">⚠️ 이상치 처리</p>
+        <p>이상치가 있는 행(row)만 제외하고 나머지 행들을 선택하는 방법을 주로 사용해요. (Orange3의 Select Rows 위젯과 같은 역할)</p>
+      </div>
+    </div>`;
+
+  el.querySelectorAll('circle[data-key]').forEach(c => {
+    c.onclick = () => {
+      const key = c.dataset.key;
+      const idx = Number(c.dataset.idx);
+      const cfg = outlierConfigs.find(cc => cc.key === key);
+      const st = outlierState[key];
+      if (st.found) return;
+      if (idx === cfg.outlierIdx) {
+        st.found = true;
+        renderOutlierTab(el);
+      } else {
+        st.wrongIdx = idx;
+        renderOutlierTab(el);
+        setTimeout(() => { st.wrongIdx = null; renderOutlierTab(el); }, 400);
+      }
+    };
+  });
+  el.querySelectorAll('[data-remove]').forEach(btn => {
+    btn.onclick = () => {
+      const key = btn.dataset.remove;
+      outlierState[key].removed = !outlierState[key].removed;
+      renderOutlierTab(el);
+    };
+  });
+}
+
+/* ═══════════════════════════════════════════
+   탭 6: 데이터 편향성
+═══════════════════════════════════════════ */
+const causesData = [
+  { icon:'🗂️', title:'① 데이터 수집 단계', desc:'특정 집단의 데이터가 너무 많이/적게 수집되거나 특정 부류가 완전히 누락될 때 발생해요.', example:'예) 설문조사를 학교 정문에서만 진행하면, 대중교통을 이용하는 학생 의견은 거의 반영되지 않아요.' },
+  { icon:'🧠', title:'② 속성 선택 단계', desc:'사람이 무의식적으로 가지고 있는 사회적 고정관념이나 편견이 속성 설계 시 포함될 때 발생해요.', example:'예) 채용 데이터에 "출신 지역"을 속성으로 넣으면, 특정 지역 출신에게 불리한 예측을 하게 될 수 있어요.' },
+  { icon:'🪄', title:'③ 데이터 전처리 단계', desc:'비어있는 값을 채우거나 잘못 입력된 데이터를 정제하는 과정에서 치우침이 발생해요.', example:'예) 결측치를 무조건 하나의 값으로만 채우면, 실제 비율이 왜곡될 수 있어요.' },
+];
+const biasScenarios = [
+  { id:1, text:'전국 고등학생의 스마트폰 사용 습관을 조사하는데, 서울의 한 학교 학생 30명에게만 설문했다.', ans:true, expl:'특정 지역·학교에 편중되어 전체 고등학생을 대표하기 어려워요. → 편향된 데이터' },
+  { id:2, text:'전국 17개 시도에서 성별·학년 비율을 맞춰 학생 1000명을 무작위로 뽑아 설문했다.', ans:false, expl:'다양한 지역과 특성을 고르게 반영했으므로 비교적 편향이 적어요.' },
+  { id:3, text:'질병 진단 인공지능을 만드는데, 학습 데이터가 모두 성인 남성 환자의 기록이었다.', ans:true, expl:'여성이나 청소년 환자에게는 정확하지 않은 예측을 할 수 있어요. → 편향된 데이터' },
+];
+let biasState = { openCause: null, answers: {} };
+
+function renderBiasTab(el) {
+  el.innerHTML = `
+    <div class="slide-in space-y-6">
+      ${infoBoxHtml('카드를 눌러 데이터 편향이 왜 생기는지 확인하고, 아래 시나리오가 편향된 데이터인지 직접 판단해보세요!')}
+
+      ${conceptCardHtml('⚖️', '데이터 편향성이란?', 'rose', `
+        <p>데이터가 현실 세계를 잘 반영할 수 있을 만큼 <b>충분히 확보되지 않아</b> 실제 세계를 표현하지 못하거나 한쪽으로 <b>치우친 경향</b>을 보이는 것이에요.</p>
+        <p>편향된 데이터로 학습하면 → 잘못된 예측이나 불공정한 결과가 나올 수 있어요.</p>
+      `)}
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        ${causesData.map((c, i) => `
+          <button data-cause="${i}" class="text-left p-4 rounded-xl border-2 transition-all ${biasState.openCause === i ? 'bg-rose-50 border-rose-300' : 'bg-white border-gray-200 hover:border-rose-200'}">
+            <div class="text-2xl mb-1">${c.icon}</div>
+            <p class="font-bold text-gray-800 mb-1 text-sm">${c.title}</p>
+            <p class="text-sm text-gray-600">${c.desc}</p>
+            ${biasState.openCause === i ? `<p class="text-sm text-rose-700 mt-2 slide-in font-bold">${c.example}</p>` : ''}
+          </button>
+        `).join('')}
+      </div>
+
+      <div class="bg-gradient-to-r from-rose-50 to-orange-50 p-5 rounded-xl border border-rose-200">
+        <h3 class="text-lg font-bold text-rose-900 mb-3">🕵️ 이 데이터는 편향되었을까요?</h3>
+        <div class="space-y-3">
+          ${biasScenarios.map(s => {
+            const answered = biasState.answers[s.id] !== undefined;
+            const correct = answered && biasState.answers[s.id] === s.ans;
+            return `
+              <div class="bg-white rounded-lg p-4 shadow-sm ${answered && !correct ? 'shake' : ''}">
+                <p class="text-base text-gray-700 mb-3">${s.text}</p>
+                <div class="flex gap-2 mb-2">
+                  <button data-bias="${s.id}" data-val="true" ${answered ? 'disabled' : ''} class="px-4 py-1.5 rounded-lg border-2 text-sm font-bold ${answered ? (s.ans === true ? 'bg-green-50 border-green-400 text-green-700' : (biasState.answers[s.id] === true ? 'bg-red-50 border-red-400 text-red-600' : 'bg-gray-50 border-gray-200 text-gray-300')) : 'bg-gray-50 border-gray-200 hover:bg-rose-50'}">편향 O</button>
+                  <button data-bias="${s.id}" data-val="false" ${answered ? 'disabled' : ''} class="px-4 py-1.5 rounded-lg border-2 text-sm font-bold ${answered ? (s.ans === false ? 'bg-green-50 border-green-400 text-green-700' : (biasState.answers[s.id] === false ? 'bg-red-50 border-red-400 text-red-600' : 'bg-gray-50 border-gray-200 text-gray-300')) : 'bg-gray-50 border-gray-200 hover:bg-rose-50'}">편향 X</button>
+                </div>
+                ${answered ? `<p class="text-sm text-gray-600 bg-gray-50 rounded-lg p-2">${s.expl}</p>` : ''}
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  el.querySelectorAll('[data-cause]').forEach(btn => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.cause);
+      biasState.openCause = (biasState.openCause === i) ? null : i;
+      renderBiasTab(el);
+    };
+  });
+  el.querySelectorAll('[data-bias]').forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.dataset.bias);
+      const val = btn.dataset.val === 'true';
+      if (biasState.answers[id] !== undefined) return;
+      biasState.answers[id] = val;
+      renderBiasTab(el);
+    };
+  });
+}
+
+/* ═══════════════════════════════════════════
+   탭 7: 상관관계
+═══════════════════════════════════════════ */
+const CORR_N = 36;
+function seeded(seed) { let s = seed; return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; }; }
+const rnd = seeded(7);
+const baseX = Array.from({ length: CORR_N }, () => rnd() * 2 - 1);
+const baseNoise = Array.from({ length: CORR_N }, () => rnd() * 2 - 1);
+
+const corrScenarios = [
+  { id:1, text:'자습시간이 길어질수록 시험 점수가 높아진다', ans:'pos' },
+  { id:2, text:'냉방기 사용 시간이 길어질수록 전기 요금이 많이 나온다', ans:'pos' },
+  { id:3, text:'운동 시간이 늘어날수록 체지방률이 낮아진다', ans:'neg' },
+];
+let corrState = { r: 0.8, answers: {}, showSparrow: false };
+
+function corrInterpret(r) {
+  const a = Math.abs(r);
+  const dir = r > 0.05 ? '양의' : (r < -0.05 ? '음의' : '');
+  if (a >= 0.7) return `강한 ${dir} 상관관계예요`;
+  if (a >= 0.3) return `보통 정도의 ${dir} 상관관계예요`;
+  if (a > 0.05) return `약한 ${dir} 상관관계예요`;
+  return '거의 상관관계가 없어요';
+}
+
+const CORR_W = 460, CORR_H = 280, CORR_M = 30;
+function corrSx(v) { return CORR_M + ((v + 1.6) / 3.2) * (CORR_W - 2 * CORR_M); }
+function corrSy(v) { return CORR_H - CORR_M - ((v + 1.6) / 3.2) * (CORR_H - 2 * CORR_M); }
+
+function corrPointsHtml(r) {
+  return baseX.map((x, i) => {
+    const noise = baseNoise[i];
+    const y = r * x + Math.sqrt(Math.max(0, 1 - r * r)) * noise;
+    return `<circle cx="${corrSx(x)}" cy="${corrSy(y)}" r="5" fill="#0d9488" fill-opacity="0.7"></circle>`;
+  }).join('');
+}
+
+function updateCorrDynamic(el, r) {
+  const rlabel = el.querySelector('#corr-rlabel');
+  if (rlabel) rlabel.textContent = `r = ${r.toFixed(1)}`;
+  const interp = el.querySelector('#corr-interp');
+  if (interp) interp.textContent = corrInterpret(r);
+  const points = el.querySelector('#corr-points');
+  if (points) points.innerHTML = corrPointsHtml(r);
+}
+
+function renderCorrelationTab(el) {
+  const r = corrState.r;
+
+  el.innerHTML = `
+    <div class="slide-in space-y-6">
+      ${infoBoxHtml('슬라이더를 움직여 상관계수(r)를 바꿔보고, 산점도의 모양이 어떻게 달라지는지 관찰해보세요!')}
+
+      <div class="bg-white border-2 border-gray-200 rounded-xl p-5">
+        <h3 class="text-lg font-bold text-gray-800 mb-3">📈 상관계수(r) 실험실</h3>
+        <div class="flex items-center gap-4 mb-4 flex-wrap">
+          <input id="corr-slider" type="range" min="-1" max="1" step="0.1" value="${r}" class="w-full max-w-xs accent-emerald-600" />
+          <span id="corr-rlabel" class="font-bold text-emerald-700 text-lg">r = ${r.toFixed(1)}</span>
+          <span id="corr-interp" class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-sm font-bold">${corrInterpret(r)}</span>
+        </div>
+        <svg viewBox="0 0 ${CORR_W} ${CORR_H}" class="w-full max-w-md bg-gray-50 rounded-lg border border-gray-100">
+          <line x1="${CORR_M}" y1="${CORR_H / 2}" x2="${CORR_W - CORR_M}" y2="${CORR_H / 2}" stroke="#e2e8f0" stroke-width="1"></line>
+          <line x1="${CORR_W / 2}" y1="${CORR_M}" x2="${CORR_W / 2}" y2="${CORR_H - CORR_M}" stroke="#e2e8f0" stroke-width="1"></line>
+          <g id="corr-points">${corrPointsHtml(r)}</g>
+        </svg>
+        <div class="grid grid-cols-3 gap-2 mt-3 text-center text-sm">
+          <div class="bg-red-50 rounded-lg p-2"><p class="font-bold text-red-600">-1</p><p class="text-gray-500 text-xs">완전한 음의 상관</p></div>
+          <div class="bg-gray-50 rounded-lg p-2"><p class="font-bold text-gray-500">0</p><p class="text-gray-500 text-xs">상관 없음</p></div>
+          <div class="bg-green-50 rounded-lg p-2"><p class="font-bold text-green-600">+1</p><p class="text-gray-500 text-xs">완전한 양의 상관</p></div>
+        </div>
+      </div>
+
+      <div class="bg-gradient-to-r from-teal-50 to-emerald-50 p-5 rounded-xl border border-teal-200">
+        <h3 class="text-lg font-bold text-teal-900 mb-3 flex items-center gap-2">
+          <span id="sparrow-icon" class="relative inline-block cursor-pointer">
+            🧩
+            ${corrState.showSparrow ? `
+              <span class="absolute left-1/2 -translate-x-1/2 -top-10 bg-yellow-400 text-gray-900 px-3 py-1 rounded-xl text-sm font-bold whitespace-nowrap shadow-2xl z-50" style="animation: bounceOnce 0.4s ease-in-out;">${"\uCC38\uC0C8"}</span>
+            ` : ''}
+          </span>
+          양의 상관일까 음의 상관일까?
+        </h3>
+        <div class="space-y-3">
+          ${corrScenarios.map(s => {
+            const answered = corrState.answers[s.id] !== undefined;
+            const correct = answered && corrState.answers[s.id] === s.ans;
+            return `
+              <div class="bg-white rounded-lg p-4 shadow-sm ${answered && !correct ? 'shake' : ''}">
+                <p class="text-base text-gray-700 mb-3">${s.text}</p>
+                <div class="flex gap-2">
+                  <button data-corr="${s.id}" data-val="pos" ${answered ? 'disabled' : ''} class="px-4 py-1.5 rounded-lg border-2 text-sm font-bold ${answered ? (s.ans === 'pos' ? 'bg-green-50 border-green-400 text-green-700' : (corrState.answers[s.id] === 'pos' ? 'bg-red-50 border-red-400 text-red-600' : 'bg-gray-50 border-gray-200 text-gray-300')) : 'bg-gray-50 border-gray-200 hover:bg-teal-50'}">양의 상관</button>
+                  <button data-corr="${s.id}" data-val="neg" ${answered ? 'disabled' : ''} class="px-4 py-1.5 rounded-lg border-2 text-sm font-bold ${answered ? (s.ans === 'neg' ? 'bg-green-50 border-green-400 text-green-700' : (corrState.answers[s.id] === 'neg' ? 'bg-red-50 border-red-400 text-red-600' : 'bg-gray-50 border-gray-200 text-gray-300')) : 'bg-gray-50 border-gray-200 hover:bg-teal-50'}">음의 상관</button>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+
+  const slider = el.querySelector('#corr-slider');
+  if (slider) slider.oninput = (e) => {
+    corrState.r = parseFloat(e.target.value);
+    updateCorrDynamic(el, corrState.r);
+  };
+
+  const sparrow = el.querySelector('#sparrow-icon');
+  if (sparrow) sparrow.onclick = () => {
+    corrState.showSparrow = true;
+    renderCorrelationTab(el);
+    setTimeout(() => { corrState.showSparrow = false; renderCorrelationTab(el); }, 500);
+  };
+
+  el.querySelectorAll('[data-corr]').forEach(btn => {
+    btn.onclick = () => {
+      const id = Number(btn.dataset.corr);
+      const val = btn.dataset.val;
+      if (corrState.answers[id] !== undefined) return;
+      corrState.answers[id] = val;
+      renderCorrelationTab(el);
+    };
+  });
+}
+
+/* ═══════════════════════════════════════════
+   탭 8: 퀴즈
+═══════════════════════════════════════════ */
+const quizData = [
+  { id:1, q:'다음 중 기계학습에 대한 설명으로 가장 알맞은 것은?',
+    opts:['사람이 모든 규칙을 하나하나 프로그래밍하는 기술','데이터를 통해 스스로 규칙을 발견하고 새로운 데이터에 적용해 예측하는 기술','인터넷에서 정답을 검색해오는 기술','컴퓨터의 연산 속도를 높이는 기술'],
+    ans:1, expl:'기계학습은 데이터를 학습시켜 스스로 규칙을 찾고, 새로운 데이터에 적용해 예측하는 기술이에요.' },
+  { id:2, q:'키처럼 영향을 주는 속성, 점수처럼 영향을 받는 속성을 각각 무엇이라고 부르나요?',
+    opts:['meta / skip','feature / target','target / feature','skip / meta'],
+    ans:1, expl:'영향을 주는 속성은 feature(독립변수), 영향을 받는 속성은 target(종속변수)이에요.' },
+  { id:3, q:'표 데이터에서 「동일한 속성을 공유하는 세로줄」을 무엇이라고 하나요?',
+    opts:['row','column','cell','index'],
+    ans:1, expl:'column은 동일한 속성을 공유하는 열(세로줄) 데이터, row는 하나의 객체에 대한 전체 데이터 행(가로줄)이에요.' },
+  { id:4, q:'결측치가 적고 데이터 양이 충분히 많을 때 가장 간단하고 확실한 처리 방법은?',
+    opts:['평균값으로 채운다','결측치가 있는 행을 삭제한다','무조건 0으로 채운다','무시하고 그대로 사용한다'],
+    ans:1, expl:'데이터 양이 충분하고 결측치가 있는 행이 소수일 때는 행 전체를 삭제하는 것이 가장 확실한 방법이에요.' },
+  { id:5, q:'피어슨 상관계수가 -1에 가까울수록 두 데이터의 관계는?',
+    opts:['한쪽이 커지면 다른 쪽도 커진다','아무 관계가 없다','한쪽이 커지면 다른 쪽은 작아진다','항상 같은 값을 가진다'],
+    ans:2, expl:'-1에 가까울수록 완전한 음의 상관관계로, 한쪽이 커지면 다른 쪽은 철저히 작아져요.' },
+];
+let quizState = { answers: {}, shakeId: null };
+
+function calcQuizScore() {
+  return quizData.filter(q => quizState.answers[q.id] === q.ans).length;
+}
+
+function renderQuizTab(el) {
+  const answeredCount = Object.keys(quizState.answers).length;
+
+  el.innerHTML = `
+    <div class="slide-in space-y-5">
+      <div class="bg-gradient-to-r from-emerald-50 to-teal-50 p-4 rounded-lg border border-emerald-200 flex items-center justify-between flex-wrap gap-2">
+        <div>
+          <p class="font-bold text-emerald-900">🎯 오늘 배운 내용을 확인해봐요!</p>
+          <p class="text-base text-gray-600">보기를 클릭하면 바로 정답을 알 수 있어요.</p>
+        </div>
+        ${answeredCount > 0 ? `<button id="quiz-retry-btn" class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 rounded-lg font-bold text-base">🔄 다시 풀기</button>` : ''}
+      </div>
+
+      <div class="flex gap-2">
+        ${quizData.map(q => {
+          let cls = 'bg-gray-200';
+          if (quizState.answers[q.id] !== undefined) cls = quizState.answers[q.id] === q.ans ? 'bg-green-500' : 'bg-red-400';
+          return `<div class="h-2 flex-1 rounded-full transition-all duration-500 ${cls}"></div>`;
+        }).join('')}
+      </div>
+
+      ${quizData.map(q => {
+        const answered = quizState.answers[q.id] !== undefined;
+        return `
+          <div class="bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm ${quizState.shakeId === q.id ? 'shake' : ''}">
+            <p class="text-base font-bold text-emerald-600 mb-2">Q${q.id} / ${quizData.length}</p>
+            <p class="text-base font-bold text-gray-800 mb-4">${q.q}</p>
+            <div class="space-y-2 mb-3">
+              ${q.opts.map((opt, idx) => {
+                let style = 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-emerald-50 hover:border-emerald-300';
+                if (answered) {
+                  if (idx === q.ans) style = 'bg-green-50 border-green-400 text-green-800 font-bold';
+                  else if (idx === quizState.answers[q.id]) style = 'bg-red-50 border-red-400 text-red-700';
+                  else style = 'bg-gray-50 border-gray-200 text-gray-400';
+                }
+                const marks = answered ? (idx === q.ans ? '<span class="ml-2">✅</span>' : (idx === quizState.answers[q.id] ? '<span class="ml-2">❌</span>' : '')) : '';
+                return `<button data-quiz="${q.id}" data-idx="${idx}" ${answered ? 'disabled' : ''} class="w-full text-left px-4 py-3 rounded-lg border-2 text-base transition-all ${style} ${answered ? 'cursor-default' : 'cursor-pointer'}"><span class="font-bold mr-2">${['①','②','③','④'][idx]}</span>${opt}${marks}</button>`;
+              }).join('')}
+            </div>
+            ${answered ? `
+              <div class="p-3 rounded-lg text-base leading-relaxed ${quizState.answers[q.id] === q.ans ? 'bg-green-50 border border-green-300 text-green-800' : 'bg-orange-50 border border-orange-300 text-orange-800'}">
+                ${quizState.answers[q.id] === q.ans ? '🎉 정답이에요! ' : '💡 정답 설명: '}${q.expl}
+              </div>` : ''}
+          </div>`;
+      }).join('')}
+
+      ${answeredCount === quizData.length ? (() => {
+        const score = calcQuizScore();
+        const emoji = score === quizData.length ? '🏆' : score >= 4 ? '🌟' : score >= 2 ? '👍' : '📚';
+        const msg = score === quizData.length ? '완벽해요! 데이터 전처리 마스터예요! 🏆'
+          : score >= 4 ? '잘했어요! 거의 다 맞혔네요 👍'
+          : score >= 2 ? '조금만 더 복습해봐요! 💪'
+          : '다시 한번 처음부터 배워봐요! 📖';
+        return `
+          <div class="slide-in bg-gradient-to-r from-emerald-50 to-teal-50 p-6 rounded-xl border-2 border-emerald-300 text-center">
+            <div class="text-5xl mb-3">${emoji}</div>
+            <p class="text-2xl font-bold text-emerald-800 mb-2">${score} / ${quizData.length} 점</p>
+            <p class="text-base text-gray-600">${msg}</p>
+          </div>`;
+      })() : ''}
+    </div>`;
+
+  el.querySelectorAll('[data-quiz]').forEach(btn => {
+    btn.onclick = () => {
+      const qid = Number(btn.dataset.quiz);
+      const idx = Number(btn.dataset.idx);
+      if (quizState.answers[qid] !== undefined) return;
+      quizState.answers[qid] = idx;
+      const q = quizData.find(qq => qq.id === qid);
+      if (idx !== q.ans) {
+        quizState.shakeId = qid;
+        renderQuizTab(el);
+        setTimeout(() => { quizState.shakeId = null; renderQuizTab(el); }, 400);
+      } else {
+        renderQuizTab(el);
+      }
+    };
+  });
+  const retryBtn = el.querySelector('#quiz-retry-btn');
+  if (retryBtn) retryBtn.onclick = () => { quizState.answers = {}; quizState.shakeId = null; renderQuizTab(el); };
+}
+
+/* ═══════════════════════════════════════════
+   초기 실행
+═══════════════════════════════════════════ */
+renderGoalBox();
+renderTabButtons();
+renderTabContent();
+
+</script>
+</body>
+</html>
