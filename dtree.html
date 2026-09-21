@@ -3,32 +3,67 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>의사결정 트리 알고리즘</title>
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <title>의사결정 트리 - 질문으로 정답을 찾아가는 AI</title>
+  <!-- 같은 폴더의 로컬 파일을 먼저 사용하고, 없으면 인터넷(CDN)에서 자동으로 불러옵니다 -->
+  <script src="react.production.min.js"></script>
+  <script>window.React || document.write('<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"><\/script>');</script>
+  <script src="react-dom.production.min.js"></script>
+  <script>window.ReactDOM || document.write('<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"><\/script>');</script>
+  <script src="babel.min.js"></script>
+  <script>window.Babel || document.write('<script src="https://unpkg.com/@babel/standalone/babel.min.js"><\/script>');</script>
+  <script src="tailwindcss.js"></script>
+  <script>window.tailwind || document.write('<script src="https://cdn.tailwindcss.com"><\/script>');</script>
   <style>
-    .popup { 
-      position: fixed; 
-      background-color: #374151; 
-      color: white; 
-      padding: 8px 12px; 
-      border-radius: 6px; 
-      font-size: 0.9em; 
-      font-weight: bold; 
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3); 
-      z-index: 1000; 
-      pointer-events: none; 
-      transition: opacity 0.3s ease; 
-    }
-    body { 
-      font-family: 'Malgun Gothic', sans-serif; 
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+      background: linear-gradient(135deg, #4338ca 0%, #6d28d9 100%);
       margin: 0;
       padding: 20px;
+      min-height: 100vh;
     }
     canvas { image-rendering: auto; }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in { animation: slideIn 0.4s ease-out; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-5px); }
+      40%,80% { transform: translateX(5px); }
+    }
+    .shake { animation: shake 0.4s ease; }
+    @keyframes popIn {
+      0%   { transform: scale(0.5); opacity: 0; }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pop-in { animation: popIn 0.35s ease-out; }
+    .popup {
+      position: fixed; background-color: #374151; color: white;
+      padding: 8px 12px; border-radius: 6px; font-size: 0.9em; font-weight: bold;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 1000; pointer-events: none;
+    }
+
+    /* ── 작은 트리의 간선(노드와 노드를 잇는 선) ── */
+    .mt-node { display: flex; flex-direction: column; align-items: center; }
+    .mt-children { display: flex; justify-content: center; position: relative; padding-top: 28px; }
+    .mt-children::before { content: ''; position: absolute; top: 0; left: 50%; height: 28px; border-left: 2px solid #9ca3af; }
+    .mt-child { position: relative; display: flex; flex-direction: column; align-items: center; padding: 28px 8px 0; }
+    .mt-child::before, .mt-child::after { content: ''; position: absolute; top: 0; width: 50%; height: 28px; border-top: 2px solid #9ca3af; }
+    .mt-child::before { right: 50%; }
+    .mt-child::after { left: 50%; border-left: 2px solid #9ca3af; }
+    .mt-child:first-child::before, .mt-child:last-child::after { border: 0 none; }
+    .mt-child:last-child::before { border-right: 2px solid #9ca3af; }
+    .mt-child.mt-on::before, .mt-child.mt-on::after, .mt-children.mt-stem-on::before { border-color: #f59e0b; }
+    .mt-label { position: absolute; top: 5px; font-size: 12px; font-weight: 700; line-height: 1; z-index: 1; white-space: nowrap; }
+    .mt-child:first-child .mt-label { left: calc(50% + 9px); }
+    .mt-child:last-child .mt-label { right: calc(50% + 9px); }
+    .mt-yes { color: #2563eb; }
+    .mt-no { color: #e11d48; }
+    @media (prefers-reduced-motion: reduce) {
+      .slide-in, .shake, .pop-in { animation: none; }
+    }
   </style>
 </head>
 <body>
@@ -36,7 +71,442 @@
   <script type="text/babel">
     const { useState, useEffect, useRef, useCallback } = React;
 
-    const DecisionTreeDemo = () => {
+    /* ═════════════ 공통 부품 ═════════════ */
+    const Tip = ({ title = '💡 학습 방법', children }) => (
+      <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+        <p className="font-bold text-yellow-900 mb-1">{title}</p>
+        <p className="text-base text-gray-700">{children}</p>
+      </div>
+    );
+
+    /* 결과(잎) 색: 짜장=파랑, 짬뽕=빨강, 쫄면=초록, 그 외=노랑 */
+    const leafTone = (label) => {
+      if (/섞/.test(label))        return 'bg-amber-100 border-amber-400 text-amber-800';
+      if (/짜장|생존/.test(label)) return 'bg-blue-100 border-blue-400 text-blue-800';
+      if (/짬뽕|사망/.test(label)) return 'bg-red-100 border-red-400 text-red-800';
+      if (/쫄면/.test(label))      return 'bg-green-100 border-green-400 text-green-800';
+      if (/떡볶이/.test(label))    return 'bg-red-100 border-red-400 text-red-800';
+      return 'bg-amber-100 border-amber-400 text-amber-800';
+    };
+
+    /* 작은 트리 그리기 (질문=보라색 상자, 결과=색 상자)
+       node: { q:'질문', yes:{...}, no:{...}, maj:'깊이 제한으로 멈출 때 보이는 결과' } 또는 { r:'결과' } */
+    const MiniTree = ({ node, path = '', depth = 0, limit = 99, hl = null, showDepth = false }) => {
+      const cut = depth >= limit && !!node.q;
+      const isLeaf = !node.q || cut;
+      const onPath = hl !== null && hl.startsWith(path);
+      const current = hl !== null && hl === path;
+      const ring = current ? 'ring-4 ring-amber-400' : onPath ? 'ring-2 ring-amber-300' : '';
+      return (
+        <div className="mt-node">
+          <div className={`px-3 py-2 rounded-lg border-2 text-sm font-bold text-center max-w-[170px] ${ring} ${
+            isLeaf ? leafTone(cut ? node.maj : node.r) : 'bg-indigo-50 border-indigo-300 text-indigo-800'}`}>
+            {showDepth && <div className="text-[10px] font-normal text-gray-400 leading-none mb-1">깊이 {depth}</div>}
+            {isLeaf ? (cut ? node.maj : node.r) : node.q}
+            {cut && <div className="text-xs font-normal text-gray-500 mt-0.5">(여기서 멈춤)</div>}
+          </div>
+          {!isLeaf && (
+            <div className={`mt-children ${hl !== null && hl.length > path.length && hl.startsWith(path) ? 'mt-stem-on' : ''}`}>
+              {['yes', 'no'].map(k => {
+                const cp = path + (k === 'yes' ? 'y' : 'n');
+                const on = hl !== null && hl.startsWith(cp);
+                return (
+                  <div key={k} className={`mt-child ${on ? 'mt-on' : ''}`}>
+                    <span className={`mt-label ${k === 'yes' ? 'mt-yes' : 'mt-no'}`}>{k === 'yes' ? '예' : '아니오'}</span>
+                    <MiniTree node={node[k]} path={cp} depth={depth + 1} limit={limit} hl={hl} showDepth={showDepth} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const Dot = ({ c = 'bg-gray-300 border-gray-500' }) => (
+      <span className={`inline-block w-5 h-5 rounded-full border-2 ${c}`}></span>
+    );
+    const DOT_RED = 'bg-red-400 border-red-600';
+    const DOT_BLUE = 'bg-blue-400 border-blue-600';
+    const DOT_GREEN = 'bg-green-400 border-green-600';
+
+    /* ═════════════ 탭1: 스무고개와 트리 ═════════════ */
+    const ANIMALS = [
+      { n: '강아지', e: '🐶', legs: true,  fly: false, water: false, pet: true,  big: false },
+      { n: '말',     e: '🐴', legs: true,  fly: false, water: false, pet: false, big: true  },
+      { n: '참새',   e: '🐦', legs: false, fly: true,  water: false, pet: false, big: false },
+      { n: '독수리', e: '🦅', legs: false, fly: true,  water: false, pet: false, big: true  },
+      { n: '앵무새', e: '🦜', legs: false, fly: true,  water: false, pet: true,  big: false },
+      { n: '금붕어', e: '🐟', legs: false, fly: false, water: true,  pet: true,  big: false },
+      { n: '상어',   e: '🦈', legs: false, fly: false, water: true,  pet: false, big: true  },
+      { n: '펭귄',   e: '🐧', legs: false, fly: false, water: true,  pet: false, big: false },
+    ];
+    const ANIMAL_QS = [
+      { k: 'legs',  q: '다리가 네 개야?' },
+      { k: 'fly',   q: '날 수 있어?' },
+      { k: 'water', q: '물속에서 헤엄쳐?' },
+      { k: 'pet',   q: '집에서 키우는 경우가 많아?' },
+      { k: 'big',   q: '몸집이 커?' },
+    ];
+
+    const TwentyQuestions = () => {
+      const pick = () => Math.floor(Math.random() * ANIMALS.length);
+      const [secret, setSecret] = useState(pick);
+      const [asked, setAsked] = useState([]);
+      const [won, setWon] = useState(false);
+      const [wrong, setWrong] = useState(null);
+      const [tries, setTries] = useState(0);
+
+      const remain = ANIMALS.filter(a => asked.every(x => a[x.k] === x.ans));
+      const ask = (k) => {
+        if (won || asked.some(x => x.k === k)) return;
+        setAsked([...asked, { k, ans: ANIMALS[secret][k] }]);
+      };
+      const guess = (i) => {
+        if (won) return;
+        setTries(t => t + 1);
+        if (i === secret) setWon(true);
+        else { setWrong(i); setTimeout(() => setWrong(null), 400); }
+      };
+      const restart = () => { setSecret(pick()); setAsked([]); setWon(false); setTries(0); setWrong(null); };
+
+      return (
+        <div className="bg-white border-2 border-indigo-200 rounded-xl p-5">
+          <h3 className="text-lg font-bold text-indigo-900 mb-1">🕹️ 직접 해보기: 동물 스무고개</h3>
+          <p className="text-base text-gray-600 mb-4">컴퓨터가 동물 하나를 마음속으로 정했어요. 질문 버튼을 눌러 "예/아니오" 답을 듣고, 후보가 줄어드는 걸 지켜보세요!</p>
+
+          <div className="grid md:grid-cols-2 gap-5">
+            <div>
+              <p className="font-bold text-gray-700 mb-2">❓ 질문하기</p>
+              <div className="space-y-2">
+                {ANIMAL_QS.map(item => {
+                  const a = asked.find(x => x.k === item.k);
+                  return (
+                    <button key={item.k} onClick={() => ask(item.k)} disabled={!!a || won}
+                      className={`w-full flex items-center justify-between text-left px-4 py-2 rounded-lg border-2 text-base transition-all ${
+                        a ? (a.ans ? 'bg-blue-50 border-blue-300 text-blue-800' : 'bg-rose-50 border-rose-300 text-rose-800')
+                          : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300'} ${won && !a ? 'opacity-50' : ''}`}>
+                      <span>{item.q}</span>
+                      {a && <span className="font-bold ml-2">{a.ans ? '예 ⭕' : '아니오 ❌'}</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="text-base text-gray-500 mt-3">질문한 횟수: <b className="text-indigo-700">{asked.length}</b>번 · 남은 후보: <b className="text-indigo-700">{remain.length}</b>개</p>
+            </div>
+
+            <div>
+              <p className="font-bold text-gray-700 mb-2">🐾 후보 동물 <span className="font-normal text-gray-500 text-base">(정답이라고 생각하는 동물을 눌러 보세요)</span></p>
+              <div className="grid grid-cols-4 gap-2">
+                {ANIMALS.map((a, i) => {
+                  const alive = remain.includes(a);
+                  const isSecret = won && i === secret;
+                  return (
+                    <button key={a.n} onClick={() => guess(i)} disabled={!alive || won}
+                      className={`p-2 rounded-lg border-2 text-center transition-all ${wrong === i ? 'shake' : ''} ${
+                        isSecret ? 'bg-green-100 border-green-500 pop-in'
+                          : alive ? 'bg-white border-indigo-200 hover:bg-indigo-50 cursor-pointer'
+                                  : 'bg-gray-100 border-gray-200 opacity-30 cursor-default'}`}>
+                      <div className="text-3xl">{a.e}</div>
+                      <div className="text-sm font-bold text-gray-700">{a.n}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            {won ? (
+              <div className="pop-in bg-green-50 border-2 border-green-400 rounded-lg p-4 text-center">
+                <p className="text-xl font-bold text-green-800 mb-1">🎉 정답은 {ANIMALS[secret].e} {ANIMALS[secret].n}!</p>
+                <p className="text-base text-gray-700">질문 {asked.length}번으로 정답에 도착했어요. 질문마다 후보가 줄어들어서 정답에 가까워졌죠?</p>
+                <button onClick={restart} className="mt-3 bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-5 py-2 rounded-lg font-bold text-base">🔄 다시 하기</button>
+              </div>
+            ) : remain.length === 1 ? (
+              <p className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-base text-indigo-800 font-bold">👀 후보가 1개만 남았어요! 그 동물을 눌러서 정답을 맞혀 보세요.</p>
+            ) : (
+              <p className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-base text-gray-600">💭 어떤 질문을 먼저 하면 후보가 가장 많이 줄어들까요? {tries > 0 && '(아쉬워요! 다른 후보를 눌러 보세요)'}</p>
+            )}
+          </div>
+        </div>
+      );
+    };
+
+    /* 트리 용어 그림 */
+    const TreeTermsSVG = () => (
+      <svg viewBox="0 0 560 330" className="w-full max-w-xl mx-auto">
+        {[[280,85,160,175],[280,85,400,175],[160,175,95,265],[160,175,225,265],[400,175,335,265],[400,175,465,265]].map(([x1,y1,x2,y2], i) => (
+          <line key={i} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#6b7280" strokeWidth="2.5" />
+        ))}
+        <text x="205" y="120" fontSize="14" fontWeight="700" fill="#2563eb">예</text>
+        <text x="345" y="120" fontSize="14" fontWeight="700" fill="#e11d48">아니오</text>
+        <text x="100" y="210" fontSize="14" fontWeight="700" fill="#2563eb">예</text>
+        <text x="200" y="210" fontSize="14" fontWeight="700" fill="#e11d48">아니오</text>
+        <text x="345" y="210" fontSize="14" fontWeight="700" fill="#2563eb">예</text>
+        <text x="445" y="210" fontSize="14" fontWeight="700" fill="#e11d48">아니오</text>
+        <circle cx="280" cy="85" r="26" fill="#e0e7ff" stroke="#6366f1" strokeWidth="3" />
+        <circle cx="160" cy="175" r="26" fill="#e0e7ff" stroke="#6366f1" strokeWidth="3" />
+        <circle cx="400" cy="175" r="26" fill="#e0e7ff" stroke="#6366f1" strokeWidth="3" />
+        <circle cx="95" cy="265" r="24" fill="#fde68a" stroke="#d97706" strokeWidth="3" />
+        <circle cx="225" cy="265" r="24" fill="#fca5a5" stroke="#dc2626" strokeWidth="3" />
+        <circle cx="335" cy="265" r="24" fill="#86efac" stroke="#16a34a" strokeWidth="3" />
+        <circle cx="465" cy="265" r="24" fill="#fde68a" stroke="#d97706" strokeWidth="3" />
+        <rect x="215" y="14" width="130" height="30" rx="15" fill="#bbf7d0" stroke="#16a34a" />
+        <text x="280" y="35" textAnchor="middle" fontSize="15" fontWeight="700" fill="#166534">시작(뿌리)</text>
+        <rect x="385" y="292" width="150" height="30" rx="15" fill="#fecaca" stroke="#dc2626" />
+        <text x="460" y="313" textAnchor="middle" fontSize="15" fontWeight="700" fill="#991b1b">끝(잎) = 결과</text>
+        <text x="490" y="118" fontSize="17" fontWeight="700" fill="#d97706">질문 노드</text>
+        <line x1="488" y1="122" x2="428" y2="160" stroke="#f59e0b" strokeWidth="2" />
+        <line x1="488" y1="112" x2="308" y2="88" stroke="#f59e0b" strokeWidth="2" />
+      </svg>
+    );
+
+    /* 점심 메뉴 트리 (직접 따라가 보기) */
+    const LUNCH = {
+      q: '한식이 좋아?',
+      yes: { q: '밥이 좋아?', yes: { r: '김밥 🍙' }, no: { r: '쫄면 🍜' } },
+      no:  { q: '면이 좋아?', yes: { r: '짬뽕 🍲' }, no: { r: '볶음밥 🍛' } },
+    };
+    const nodeAt = (root, path) => path.split('').reduce((n, c) => n[c === 'y' ? 'yes' : 'no'], root);
+
+    const LunchTree = () => {
+      const [path, setPath] = useState('');
+      const node = nodeAt(LUNCH, path);
+      const done = !!node.r;
+      return (
+        <div className="bg-white border-2 border-amber-200 rounded-xl p-5">
+          <h3 className="text-lg font-bold text-amber-900 mb-1">🍱 직접 해보기: 점심 메뉴 고르기</h3>
+          <p className="text-base text-gray-600 mb-4">질문에 답하면서 트리를 따라 내려가 보세요. 지나온 길이 노란 테두리로 표시돼요.</p>
+          <div className="grid md:grid-cols-2 gap-5 items-start">
+            <div>
+              {!done ? (
+                <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 slide-in" key={path}>
+                  <p className="text-sm text-amber-700 font-bold mb-1">{path.length + 1}번째 질문</p>
+                  <p className="text-xl font-bold text-gray-800 mb-4">"{node.q}"</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setPath(path + 'y')} className="flex-1 bg-blue-500 hover:bg-blue-600 text-white py-3 rounded-lg font-bold text-lg">예</button>
+                    <button onClick={() => setPath(path + 'n')} className="flex-1 bg-rose-500 hover:bg-rose-600 text-white py-3 rounded-lg font-bold text-lg">아니오</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-green-50 border-2 border-green-400 rounded-lg p-4 text-center pop-in">
+                  <p className="text-base text-gray-600 mb-1">오늘의 점심은…</p>
+                  <p className="text-3xl font-bold text-green-800 mb-2">{node.r}</p>
+                  <p className="text-base text-gray-600">질문 {path.length}번 만에 결론에 도착했어요!</p>
+                </div>
+              )}
+              <div className="flex gap-2 mt-3">
+                <button onClick={() => setPath(path.slice(0, -1))} disabled={path === ''}
+                  className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-600 font-bold text-base disabled:opacity-40">↩ 한 단계 뒤로</button>
+                <button onClick={() => setPath('')} disabled={path === ''}
+                  className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-600 font-bold text-base disabled:opacity-40">🔄 처음부터</button>
+              </div>
+            </div>
+            <div className="overflow-x-auto bg-gray-50 rounded-lg border border-gray-200 p-3">
+              <div className="min-w-[380px] flex justify-center"><MiniTree node={LUNCH} hl={path} /></div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const IntroTab = () => (
+      <div className="slide-in space-y-6">
+        <Tip>각 탭을 순서대로 눌러 보며 의사결정 트리를 배워요. 버튼과 슬라이더를 직접 움직여 보면 더 쉽게 이해할 수 있어요!</Tip>
+
+        <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-xl border border-indigo-200">
+          <h2 className="text-xl font-bold text-indigo-900 mb-4">🤔 스무고개 놀이를 떠올려 봐요</h2>
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <p className="text-3xl mb-2">🤫</p>
+              <p className="font-bold text-gray-800 mb-1">① 정답을 정해 놓아요</p>
+              <p className="text-base text-gray-600">친구가 마음속으로 정답(예: 동물)을 정해요.</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <p className="text-3xl mb-2">🙋</p>
+              <p className="font-bold text-gray-800 mb-1">② "예/아니오" 질문</p>
+              <p className="text-base text-gray-600">"예" 또는 "아니오"로 답할 수 있는 질문만 해요. 예) "다리가 네 개야?"</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow-sm">
+              <p className="text-3xl mb-2">🎯</p>
+              <p className="font-bold text-gray-800 mb-1">③ 정답을 좁혀 가요</p>
+              <p className="text-base text-gray-600">질문할 때마다 후보가 줄어들어서 정답에 점점 가까워져요.</p>
+            </div>
+          </div>
+        </div>
+
+        <TwentyQuestions />
+
+        <div className="bg-indigo-100 p-4 rounded-lg border-l-4 border-indigo-500">
+          <p className="text-base text-gray-700 leading-relaxed">
+            컴퓨터가 어떤 결정을 내릴 때도 스무고개처럼 <span className="font-bold text-indigo-700">질문을 던지며 답을 찾아가요.</span> 이 과정을 나무 모양으로 그린 것이
+            <span className="font-bold text-indigo-700"> 의사결정 트리(Decision Tree)</span>예요. 뿌리가 위에 있는 거꾸로 뒤집어진 나무처럼 생겼어요. 🌳
+          </p>
+        </div>
+
+        <div className="bg-green-50 border-2 border-green-200 rounded-xl p-5">
+          <h3 className="text-lg font-bold text-green-800 mb-3">🌲 트리의 부분 이름</h3>
+          <div className="grid md:grid-cols-2 gap-4 items-center">
+            <TreeTermsSVG />
+            <div className="space-y-2 text-base text-gray-700">
+              <p><span className="font-bold text-green-700">시작(뿌리)</span>: 가장 먼저 던지는 첫 번째 질문이에요.</p>
+              <p><span className="font-bold text-amber-600">노드</span>: 질문(조건)이 들어 있는 동그라미예요. 예/아니오로 갈라져요.</p>
+              <p><span className="font-bold text-red-600">끝(잎) = 결과</span>: 더 이상 질문이 없는 마지막 칸으로, 정답(결과)이에요.</p>
+            </div>
+          </div>
+        </div>
+
+        <LunchTree />
+
+        <div className="bg-purple-50 p-4 rounded-lg border-l-4 border-purple-500">
+          <p className="text-base text-gray-700 leading-relaxed">
+            💡 의사결정 트리에서는 <span className="font-bold text-purple-700">어떤 질문(분류 기준)을 먼저 던지는가</span>가 가장 중요해요.
+            점심 메뉴에서도 "한식이 좋아?"처럼 후보를 크게 나누는 질문을 먼저 하면 더 빨리 정답에 도착하겠죠?
+          </p>
+        </div>
+      </div>
+    );
+
+    /* ═════════════ 탭2: 실제 예시 (생존 예측 트리) ═════════════ */
+    const TBox = ({ x, y, w = 170, h = 50, text, sub, fill, stroke, active }) => (
+      <g>
+        <rect x={x - w / 2} y={y - h / 2} width={w} height={h} rx="12" fill={fill}
+          stroke={active ? '#f59e0b' : stroke} strokeWidth={active ? 5 : 2.5} />
+        <text x={x} y={sub ? y - 3 : y + 6} textAnchor="middle" fontSize="17" fontWeight="700" fill="#1f2937">{text}</text>
+        {sub && <text x={x} y={y + 16} textAnchor="middle" fontSize="14" fill="#374151">{sub}</text>}
+      </g>
+    );
+    const TEdge = ({ x1, y1, x2, y2, label, lx, ly, active }) => (
+      <g>
+        <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={active ? '#f59e0b' : '#9ca3af'} strokeWidth={active ? 5 : 2.5} />
+        <text x={lx} y={ly} fontSize="15" fontWeight="700" fill={label === '예' ? '#2563eb' : '#e11d48'} textAnchor="middle">{label}</text>
+      </g>
+    );
+
+    const SURVIVAL = {
+      A: { label: '생존', p: '73%', pct: '36%', survive: true },
+      B: { label: '사망', p: '83%', pct: '61%', survive: false },
+      C: { label: '사망', p: '95%', pct: '2%',  survive: false },
+      D: { label: '생존', p: '89%', pct: '2%',  survive: true },
+    };
+
+    const SurvivalTree = () => {
+      const [sex, setSex] = useState('남성');
+      const [age, setAge] = useState(30);
+      const [fam, setFam] = useState(0);
+
+      const male = sex === '남성';
+      const older = age > 9.5;
+      const bigFam = fam > 2.5;
+      let leaf, n2 = false, n3 = false;
+      if (!male) leaf = 'A';
+      else { n2 = true; if (older) leaf = 'B'; else { n3 = true; leaf = bigFam ? 'C' : 'D'; } }
+      const res = SURVIVAL[leaf];
+
+      const presets = [
+        { t: '👩 성인 여성', s: '여성', a: 30, f: 0 },
+        { t: '👨 성인 남성', s: '남성', a: 30, f: 0 },
+        { t: '👦 8살 남자아이', s: '남성', a: 8, f: 1 },
+        { t: '👦 8살 (형제 4명)', s: '남성', a: 8, f: 4 },
+      ];
+      const leafBox = (id, x, y) => {
+        const r = SURVIVAL[id];
+        return <TBox x={x} y={y} w={150} h={54} text={`${r.label} ${r.p}`} sub={`(전체의 ${r.pct})`}
+          fill={r.survive ? '#dbeafe' : '#fee2e2'} stroke={r.survive ? '#2563eb' : '#dc2626'} active={leaf === id} />;
+      };
+
+      return (
+        <div className="space-y-5">
+          <div className="bg-white border-2 border-indigo-200 rounded-xl p-5">
+            <h3 className="text-lg font-bold text-indigo-900 mb-1">🔮 실제 데이터로 만든 의사결정 트리</h3>
+            <p className="text-base text-gray-600 mb-3">승객 데이터로 "살아남았을까?"를 예측하는 트리예요. 승객의 조건을 바꿔 보면 지나가는 길이 노란색으로 바뀌어요.</p>
+            <div className="overflow-x-auto">
+              <svg viewBox="0 0 720 440" className="w-full min-w-[560px] max-w-3xl mx-auto">
+                <TEdge x1={330} y1={70} x2={235} y2={124} label="예" lx={268} ly={92} active={male} />
+                <TEdge x1={390} y1={70} x2={560} y2={124} label="아니오" lx={498} ly={92} active={!male} />
+                <TEdge x1={200} y1={175} x2={120} y2={238} label="예" lx={140} ly={200} active={male && older} />
+                <TEdge x1={245} y1={175} x2={330} y2={238} label="아니오" lx={312} ly={200} active={n3} />
+                <TEdge x1={310} y1={290} x2={250} y2={352} label="예" lx={264} ly={318} active={n3 && bigFam} />
+                <TEdge x1={350} y1={290} x2={410} y2={352} label="아니오" lx={408} ly={318} active={n3 && !bigFam} />
+                <TBox x={360} y={45} text="성별 == 남성?" fill="#e0e7ff" stroke="#6366f1" active={true} />
+                <TBox x={222} y={150} text="나이 > 9.5?" fill="#e0e7ff" stroke="#6366f1" active={n2} />
+                <TBox x={330} y={265} w={190} text="동반가족 > 2.5?" fill="#e0e7ff" stroke="#6366f1" active={n3} />
+                {leafBox('A', 570, 150)}
+                {leafBox('B', 100, 265)}
+                {leafBox('C', 240, 380)}
+                {leafBox('D', 430, 380)}
+              </svg>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-5">
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
+              <h3 className="text-lg font-bold text-blue-800 mb-3">🧑‍🤝‍🧑 승객 조건 바꿔 보기</h3>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {presets.map(p => (
+                  <button key={p.t} onClick={() => { setSex(p.s); setAge(p.a); setFam(p.f); }}
+                    className="px-3 py-1.5 rounded-lg bg-white border border-blue-300 text-blue-700 font-bold text-sm hover:bg-blue-100">{p.t}</button>
+                ))}
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <p className="text-base font-bold text-gray-700 mb-1">성별</p>
+                  <div className="flex gap-2">
+                    {['남성', '여성'].map(s => (
+                      <button key={s} onClick={() => setSex(s)}
+                        className={`flex-1 py-2 rounded-lg font-bold text-base border-2 ${sex === s ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-200'}`}>{s}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="text-base font-bold text-gray-700 mb-1">나이: {age}살</p>
+                  <input type="range" min="0" max="80" value={age} onChange={e => setAge(parseInt(e.target.value))} className="w-full" />
+                </div>
+                <div>
+                  <p className="text-base font-bold text-gray-700 mb-1">동반가족 수: {fam}명</p>
+                  <input type="range" min="0" max="8" value={fam} onChange={e => setFam(parseInt(e.target.value))} className="w-full" />
+                </div>
+              </div>
+            </div>
+
+            <div className={`rounded-xl p-5 border-2 ${res.survive ? 'bg-blue-50 border-blue-300' : 'bg-red-50 border-red-300'}`}>
+              <h3 className={`text-lg font-bold mb-3 ${res.survive ? 'text-blue-800' : 'text-red-800'}`}>🔮 트리의 예측</h3>
+              <p className="text-3xl font-bold mb-2 text-gray-800">{res.survive ? '🙂' : '😢'} {res.label}</p>
+              <div className="space-y-1 text-base text-gray-700">
+                <p>1️⃣ 성별이 남성? → <b>{male ? '예' : '아니오'}</b></p>
+                {n2 && <p>2️⃣ 나이가 9.5보다 많아? ({age}살) → <b>{older ? '예' : '아니오'}</b></p>}
+                {n3 && <p>3️⃣ 동반가족이 2.5보다 많아? ({fam}명) → <b>{bigFam ? '예' : '아니오'}</b></p>}
+                <p className="pt-2 border-t border-gray-300 mt-2">끝(잎)에 도착! 이 잎에 도착한 승객 중 <b>{res.p}</b>가 실제로 <b>{res.label}</b>했어요. (전체 승객의 <b>{res.pct}</b>가 이 잎에 도착했어요.)</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-5">
+            <div className="bg-purple-50 border border-purple-200 rounded-xl p-5">
+              <p className="font-bold text-purple-900 mb-2">🔢 잎 안의 숫자는 무슨 뜻일까요?</p>
+              <p className="text-base text-gray-700 leading-relaxed">위 줄의 "사망 83%"는 이 잎에 도착한 승객 중 <b>83%가 실제로 사망했다</b>는 뜻이에요. 트리는 더 많은 쪽인 "사망"으로 예측해요.
+                아래 줄의 "(전체의 61%)"는 <b>전체 승객 중 이 잎에 도착한 사람의 비율</b>이에요. 두 %는 서로 다른 뜻이에요!</p>
+            </div>
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
+              <p className="font-bold text-amber-900 mb-2">🤔 왜 9.5, 2.5처럼 소수로 써요?</p>
+              <p className="text-base text-gray-700 leading-relaxed">나이와 가족 수는 1, 2, 3…처럼 정수예요. 컴퓨터는 두 값의 <b>가운데</b>를 기준으로 삼아서 "9세와 10세 사이 → 9.5"처럼 나눠요.
+                그래서 "9.5보다 많다"는 <b>10살 이상</b>, "2.5보다 많다"는 <b>3명 이상</b>이라는 뜻이에요.</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const ExampleTab = () => (
+      <div className="slide-in space-y-6">
+        <Tip>의사결정 트리는 진짜 데이터로도 만들 수 있어요. 승객 조건을 바꾸면서 트리가 어떤 길로 결론에 도착하는지 따라가 보세요.</Tip>
+        <SurvivalTree />
+      </div>
+    );
+
+    /* ═════════════ 탭3: 트리 만들기 체험 (시뮬레이터) ═════════════ */
+    const TreeLab = () => {
       const canvasRef = useRef(null);
       const treeCanvasRef = useRef(null);
       const WIDTH = 600;
@@ -553,380 +1023,168 @@
 
       const treeStats = tree ? countTreeStats(tree) : null;
 
+      /* 2그룹 예시: 초록(C)을 빼고 A, B 두 그룹만 */
+      const presetTwo = () => { setPoints(generateInitialData().filter(p => p.class !== 0)); setTree(null); };
+
       return (
-        <div className="max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {showPopup && <div className="popup" style={{left: popupPos.x, top: popupPos.y, opacity: 1}}>참새다!</div>}
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
-            <div className="text-sm mb-2 text-indigo-100">부산진여자상업고등학교 인공지능기초 학습자료</div>
-            <h1 className="text-3xl font-bold mb-2">의사결정 트리(Decision Tree)란 무엇일까?</h1>
-            <p className="text-indigo-100">질문을 통해 데이터를 분류하는 직관적인 AI 알고리즘을 체험해보세요</p>
+        <div className="space-y-5">
+          {showPopup && <div className="popup" style={{ left: popupPos.x, top: popupPos.y, opacity: 1 }}>&#xCC38;&#xC0C8;</div>}
+
+          <Tip>① 그룹(색)을 고르고 칸을 눌러 데이터를 추가해요 → ② 옵션을 조절해요 → ③ '학습 시작!'을 눌러요 → ④ 만들어진 트리와 경계선을 살펴봐요.</Tip>
+
+          <div className="grid md:grid-cols-4 gap-3">
+            <div className="bg-indigo-50 p-3 rounded-lg border border-indigo-200"><p className="font-bold text-indigo-800 text-base">1️⃣ 데이터 추가</p><p className="text-sm text-gray-600">그룹 A·B·C 중 하나를 고르고 오른쪽 칸을 눌러요.</p></div>
+            <div className="bg-green-50 p-3 rounded-lg border border-green-200"><p className="font-bold text-green-800 text-base">2️⃣ 옵션 조정</p><p className="text-sm text-gray-600">트리가 얼마나 복잡해질지 슬라이더로 정해요.</p></div>
+            <div className="bg-orange-50 p-3 rounded-lg border border-orange-200"><p className="font-bold text-orange-800 text-base">3️⃣ 학습 실행</p><p className="text-sm text-gray-600">AI가 가장 좋은 질문을 찾아 트리를 만들어요.</p></div>
+            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200"><p className="font-bold text-purple-800 text-base">4️⃣ 결과 확인</p><p className="text-sm text-gray-600">트리 구조와 초록색 경계선을 확인해요.</p></div>
           </div>
 
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 border-b border-indigo-100">
-            <div className="space-y-3 text-gray-700">
-              <div>
-                <h3 className="font-bold text-indigo-900 text-lg mb-2">📚 의사결정 트리란?</h3>
-                <p className="leading-relaxed">
-                  의사결정 트리는 <span className="font-bold text-blue-600">"예/아니오" 질문을 반복</span>하여 데이터를 분류하는 알고리즘이에요.
-                  마치 스무고개 게임처럼, "<span className="font-bold text-green-600">X값이 300보다 작나요?</span>", 
-                  "<span className="font-bold text-green-600">Y값이 200보다 크나요?</span>" 같은 질문으로 
-                  <span className="font-bold text-purple-600">데이터를 단계적으로 나누어</span> 최종 답을 찾아요!
-                </p>
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="space-y-4">
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h3 className="font-bold text-purple-900 mb-3 flex items-center gap-2"><span className="text-xl">⚙️</span><span>트리 옵션</span></h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-base text-gray-700 block mb-1">잎 최소 데이터 수: <b>{minLeafInstances}</b></label>
+                    <input type="range" min="1" max="10" value={minLeafInstances} onChange={(e) => setMinLeafInstances(parseInt(e.target.value))} className="w-full" />
+                    <p className="text-xs text-gray-500 mt-1">*마지막 칸(잎)에 있어야 하는 최소 데이터 수</p>
+                  </div>
+                  <div>
+                    <label className="text-base text-gray-700 block mb-1">이보다 적으면 안 나눠요: <b>{minSplitSize}</b></label>
+                    <input type="range" min="2" max="20" value={minSplitSize} onChange={(e) => setMinSplitSize(parseInt(e.target.value))} className="w-full" />
+                    <p className="text-xs text-gray-500 mt-1">*데이터가 이 수보다 적은 그룹은 더 안 나눠요</p>
+                  </div>
+                  <div>
+                    <label className="text-base text-gray-700 block mb-1">트리 최대 깊이: <b>{maxDepth}</b></label>
+                    <input type="range" min="1" max="15" value={maxDepth} onChange={(e) => setMaxDepth(parseInt(e.target.value))} className="w-full" />
+                    <p className="text-xs text-gray-500 mt-1">*질문을 몇 단계까지 이어갈지</p>
+                  </div>
+                  <div>
+                    <label className="text-base text-gray-700 block mb-1">같은 답 비율: <b>{majorityThreshold}%</b></label>
+                    <input type="range" min="50" max="100" value={majorityThreshold} onChange={(e) => setMajorityThreshold(parseInt(e.target.value))} className="w-full" />
+                    <p className="text-xs text-gray-500 mt-1">*한 그룹이 이 비율 이상 같은 답이면 멈춰요</p>
+                  </div>
+                  <button onClick={() => { setMinLeafInstances(2); setMinSplitSize(5); setMaxDepth(10); setMajorityThreshold(95); }}
+                    className="w-full bg-white border border-purple-300 text-purple-700 py-2 rounded-lg font-bold text-sm hover:bg-purple-100">옵션 기본값으로 (2 · 5 · 10 · 95)</button>
+                </div>
               </div>
-              
-              <div className="grid md:grid-cols-4 gap-4 mt-4">
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <h4 className="font-bold text-indigo-700 mb-2">1️⃣ 데이터 추가</h4>
-                  <p className="text-sm">클래스 A, B, 또는 C를 선택한 후 캔버스를 클릭하여 학습 데이터를 추가합니다.</p>
+
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h3 className="font-bold text-green-900 mb-3 flex items-center gap-2"><span className="text-xl">📊</span><span>데이터 입력</span></h3>
+                <div className="space-y-2">
+                  <button onClick={() => setSelectedClass(1)}
+                    className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === 1 ? 'bg-red-500 text-white shadow-lg scale-105' : 'bg-white text-red-600 border-2 border-red-300 hover:bg-red-50'}`}>🔴 그룹 A 추가</button>
+                  <button onClick={() => setSelectedClass(-1)}
+                    className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === -1 ? 'bg-blue-500 text-white shadow-lg scale-105' : 'bg-white text-blue-600 border-2 border-blue-300 hover:bg-blue-50'}`}>🔵 그룹 B 추가</button>
+                  <button onClick={() => setSelectedClass(0)}
+                    className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === 0 ? 'bg-green-500 text-white shadow-lg scale-105' : 'bg-white text-green-600 border-2 border-green-300 hover:bg-green-50'}`}>🟢 그룹 C 추가</button>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <h4 className="font-bold text-green-700 mb-2">2️⃣ 파라미터 조정</h4>
-                  <p className="text-sm">트리의 깊이, 노드 크기 등을 조절하여 트리가 얼마나 복잡해질지 결정합니다.</p>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><span className="text-xl">🎮</span><span>동작</span></h3>
+                <div className="space-y-2">
+                  <button onClick={handleTrain} disabled={points.length < 2}
+                    className="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white py-3 rounded-lg font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all">🌱 학습 시작!</button>
+                  <button onClick={reset} className="w-full bg-white border-2 border-indigo-300 text-indigo-700 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition-all">3그룹 예시 (처음 상태)</button>
+                  <button onClick={presetTwo} className="w-full bg-white border-2 border-indigo-300 text-indigo-700 py-2 rounded-lg font-semibold hover:bg-indigo-50 transition-all">2그룹 예시 (A, B만)</button>
+                  <button onClick={() => { setPoints([]); setTree(null); }} className="w-full bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600 transition-all">모두 지우기</button>
                 </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <h4 className="font-bold text-orange-700 mb-2">3️⃣ 학습 실행</h4>
-                  <p className="text-sm">'학습 시작!' 버튼을 클릭하면 AI가 최적의 질문들을 찾아 트리를 만듭니다.</p>
-                </div>
-                <div className="bg-white p-4 rounded-lg shadow-sm">
-                  <h4 className="font-bold text-purple-700 mb-2">4️⃣ 결과 확인</h4>
-                  <p className="text-sm">만들어진 트리 구조와 결정 경계선을 확인하고 이해해봅니다.</p>
+              </div>
+
+              <div className="bg-pink-50 p-4 rounded-lg border border-pink-200">
+                <h3 className="font-bold text-pink-900 mb-3 flex items-center gap-2"><span className="text-xl">📈</span><span>통계</span></h3>
+                <div className="space-y-2 text-base">
+                  <div className="flex justify-between items-center p-2 bg-white rounded"><span>그룹 A</span><span className="font-bold text-red-600">{redCount}개</span></div>
+                  <div className="flex justify-between items-center p-2 bg-white rounded"><span>그룹 B</span><span className="font-bold text-blue-600">{blueCount}개</span></div>
+                  <div className="flex justify-between items-center p-2 bg-white rounded"><span>그룹 C</span><span className="font-bold text-green-600">{greenCount}개</span></div>
+                  <div className="flex justify-between items-center p-2 bg-white rounded"><span>전체</span><span className="font-bold">{points.length}개</span></div>
+                  {treeStats && (
+                    <>
+                      <div className="flex justify-between items-center p-2 bg-purple-100 rounded"><span>전체 노드</span><span className="font-bold text-purple-700">{treeStats.nodes}개</span></div>
+                      <div className="flex justify-between items-center p-2 bg-green-100 rounded"><span>잎(결과)</span><span className="font-bold text-green-700">{treeStats.leaves}개</span></div>
+                      <div className="flex justify-between items-center p-2 bg-orange-100 rounded"><span>실제 깊이</span><span className="font-bold text-orange-700">{treeStats.maxDepth}</span></div>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-              <div className="space-y-4">
-                <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-                  <h3 className="font-bold text-purple-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl">⚙️</span>
-                    <span>트리 파라미터</span>
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm text-gray-600 block mb-1">
-                        리프 노드 최소 개수: {minLeafInstances}
-                      </label>
-                      <input 
-                        type="range" 
-                        min="1" 
-                        max="10" 
-                        value={minLeafInstances} 
-                        onChange={(e) => setMinLeafInstances(parseInt(e.target.value))} 
-                        className="w-full" 
-                      />
-                      <p className="text-xs text-gray-500 mt-1">*마지막 노드에 필요한 최소 데이터 수</p>
+            <div className="lg:col-span-3 space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2"><span className="text-xl">🎯</span><span>데이터를 찍는 곳 (2차원 특성 공간)</span></h3>
+                <div className="relative bg-white rounded-lg shadow-inner overflow-hidden border-2 border-gray-300">
+                  <canvas ref={canvasRef} width={WIDTH} height={HEIGHT}
+                    onClick={handleClick} onMouseMove={handleMouseMove} onMouseLeave={() => setHovered(null)}
+                    className="block w-full cursor-crosshair" />
+                  {hovered && (
+                    <div className="absolute bg-gray-900 text-white text-xs px-3 py-1 rounded-md pointer-events-none shadow-lg"
+                      style={{ left: dataToCanvasX(hovered.x) + 15, top: dataToCanvasY(hovered.y) - 10 }}>
+                      {hovered.class === 1 ? '그룹 A' : hovered.class === -1 ? '그룹 B' : '그룹 C'}
                     </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600 block mb-1">
-                        최소 분할 크기: {minSplitSize}
-                      </label>
-                      <input 
-                        type="range" 
-                        min="2" 
-                        max="20" 
-                        value={minSplitSize} 
-                        onChange={(e) => setMinSplitSize(parseInt(e.target.value))} 
-                        className="w-full" 
-                      />
-                      <p className="text-xs text-gray-500 mt-1">*더 이상 나누지 않을 최소 크기</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600 block mb-1">
-                        최대 깊이: {maxDepth}
-                      </label>
-                      <input 
-                        type="range" 
-                        min="1" 
-                        max="15" 
-                        value={maxDepth} 
-                        onChange={(e) => setMaxDepth(parseInt(e.target.value))} 
-                        className="w-full" 
-                      />
-                      <p className="text-xs text-gray-500 mt-1">*트리가 얼마나 깊어질 수 있는지</p>
-                    </div>
-
-                    <div>
-                      <label className="text-sm text-gray-600 block mb-1">
-                        다수 기준: {majorityThreshold}%
-                      </label>
-                      <input 
-                        type="range" 
-                        min="50" 
-                        max="100" 
-                        value={majorityThreshold} 
-                        onChange={(e) => setMajorityThreshold(parseInt(e.target.value))} 
-                        className="w-full" 
-                      />
-                      <p className="text-xs text-gray-500 mt-1">*한 클래스가 이 비율 이상이면 분할 중지</p>
-                    </div>
-                  </div>
+                  )}
                 </div>
 
-                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
-                  <h3 className="font-bold text-green-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl">📊</span>
-                    <span>데이터 입력</span>
-                  </h3>
-                  <div className="space-y-2">
-                    <button onClick={() => setSelectedClass(1)}
-                      className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === 1 ? 'bg-red-500 text-white shadow-lg scale-105' : 'bg-white text-red-600 border-2 border-red-300 hover:bg-red-50'}`}>
-                      클래스 A 추가
-                    </button>
-                    <button onClick={() => setSelectedClass(-1)}
-                      className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === -1 ? 'bg-blue-500 text-white shadow-lg scale-105' : 'bg-white text-blue-600 border-2 border-blue-300 hover:bg-blue-50'}`}>
-                      클래스 B 추가
-                    </button>
-                    <button onClick={() => setSelectedClass(0)}
-                      className={`w-full p-3 rounded-lg font-semibold transition-all ${selectedClass === 0 ? 'bg-green-500 text-white shadow-lg scale-105' : 'bg-white text-green-600 border-2 border-green-300 hover:bg-green-50'}`}>
-                      클래스 C 추가
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                  <h3 className="font-bold text-slate-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl">🎮</span>
-                    <span>동작</span>
-                  </h3>
-                  <div className="space-y-2">
-                    <button onClick={handleTrain} disabled={points.length < 2}
-                      className="w-full bg-green-500 text-white py-3 rounded-lg font-semibold hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-all">
-                      학습 시작!
-                    </button>
-                    <button onClick={() => { setPoints([]); setTree(null); }}
-                      className="w-full bg-orange-500 text-white py-3 rounded-lg font-semibold hover:bg-orange-600 transition-all">
-                      모두 지우기
-                    </button>
-                    <button onClick={reset}
-                      className="w-full bg-gray-500 text-white py-3 rounded-lg font-semibold hover:bg-gray-600 transition-all">
-                      초기화
-                    </button>
-                  </div>
-                </div>
-
-                <div className="bg-pink-50 p-4 rounded-lg border border-pink-200">
-                  <h3 className="font-bold text-pink-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl">📈</span>
-                    <span>통계</span>
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between items-center p-2 bg-white rounded">
-                      <span className="font-medium">클래스 A:</span>
-                      <span className="font-bold text-red-600">{redCount}개</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-white rounded">
-                      <span className="font-medium">클래스 B:</span>
-                      <span className="font-bold text-blue-600">{blueCount}개</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-white rounded">
-                      <span className="font-medium">클래스 C:</span>
-                      <span className="font-bold text-green-600">{greenCount}개</span>
-                    </div>
-                    <div className="flex justify-between items-center p-2 bg-white rounded">
-                      <span className="font-medium">전체:</span>
-                      <span className="font-bold">{points.length}개</span>
-                    </div>
-                    {treeStats && (
-                      <>
-                        <div className="flex justify-between items-center p-2 bg-purple-100 rounded">
-                          <span className="font-medium">전체 노드:</span>
-                          <span className="font-bold text-purple-700">{treeStats.nodes}개</span>
+                {tree && (
+                  <div className="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-lg border-2 border-green-400 slide-in">
+                    <h3 className="text-xl font-bold text-green-800 mb-3">✅ 학습 완료!</h3>
+                    <div className="space-y-3">
+                      <div className="bg-white p-4 rounded-lg shadow-sm">
+                        <p className="font-semibold text-gray-800 mb-2">🌳 그림 읽는 법</p>
+                        <div className="space-y-1 text-base text-gray-700">
+                          <p>• <span className="font-semibold text-green-600">초록 선</span>: 데이터를 나누는 결정 경계선이에요.</p>
+                          <p>• <span className="font-semibold text-red-400">빨간 영역</span> / <span className="font-semibold text-blue-400">파란 영역</span> / <span className="font-semibold text-green-500">초록 영역</span>: 트리가 A / B / C라고 예측하는 구역이에요.</p>
+                          <p className="pt-2 border-t border-gray-200">
+                            • 트리는 <span className="font-bold text-purple-600">{treeStats.nodes}개의 노드</span>와 <span className="font-bold text-green-600">{treeStats.leaves}개의 잎</span>으로 이루어져 있고, 깊이는 <span className="font-bold text-orange-600">{treeStats.maxDepth}단계</span>예요.
+                          </p>
                         </div>
-                        <div className="flex justify-between items-center p-2 bg-green-100 rounded">
-                          <span className="font-medium">리프 노드:</span>
-                          <span className="font-bold text-green-700">{treeStats.leaves}개</span>
+                      </div>
+                      {(minLeafInstances < 2 || maxDepth > 12) && (
+                        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                          <p className="text-base font-semibold text-yellow-900 mb-1">⚠️ 과대적합 주의!</p>
+                          <p className="text-base text-gray-700">옵션이 너무 자유로우면 지금 가진 데이터만 외워서, 새로운 데이터는 잘 맞히지 못할 수 있어요.</p>
                         </div>
-                        <div className="flex justify-between items-center p-2 bg-orange-100 rounded">
-                          <span className="font-medium">실제 깊이:</span>
-                          <span className="font-bold text-orange-700">{treeStats.maxDepth}</span>
-                        </div>
-                      </>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              <div className="lg:col-span-3 space-y-4">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl">🎯</span>
-                    <span>2차원 특성 공간</span>
-                  </h3>
-                  <div className="relative bg-white rounded-lg shadow-inner overflow-hidden border-2 border-gray-300">
-                    <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} 
-                      onClick={handleClick} onMouseMove={handleMouseMove} 
-                      onMouseLeave={() => setHovered(null)}
-                      className="block w-full cursor-crosshair" />
-                    {hovered && (
-                      <div className="absolute bg-gray-900 text-white text-xs px-3 py-1 rounded-md pointer-events-none shadow-lg"
-                        style={{ left: dataToCanvasX(hovered.x) + 15, top: dataToCanvasY(hovered.y) - 10 }}>
-                        {hovered.class === 1 ? '클래스 A' : hovered.class === -1 ? '클래스 B' : '클래스 C'}
-                      </div>
-                    )}
-                  </div>
-
-                  {tree && (
-                    <div className="mt-4 bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-lg border-2 border-green-400">
-                      <h3 className="text-xl font-bold text-green-800 mb-3 flex items-center gap-2">
-                        <span>✅</span>
-                        <span>학습 완료!</span>
-                      </h3>
-                      <div className="space-y-3">
-                        <div className="bg-white p-4 rounded-lg shadow-sm">
-                          <p className="font-semibold text-gray-800 mb-2">
-                            🌳 트리 정보
-                          </p>
-                          <div className="space-y-2 text-sm text-gray-700">
-                            <p>• <span className="font-semibold text-green-600">녹색 선</span>: 데이터를 나누는 결정 경계선</p>
-                            <p>• <span className="font-semibold text-red-400">빨간 영역</span>: 클래스 A로 예측되는 구역</p>
-                            <p>• <span className="font-semibold text-blue-400">파란 영역</span>: 클래스 B로 예측되는 구역</p>
-                            <p>• <span className="font-semibold text-green-400">초록 영역</span>: 클래스 C로 예측되는 구역</p>
-                            <p className="pt-2 border-t border-gray-200">
-                              • 트리는 <span className="font-bold text-purple-600">{treeStats.nodes}개의 노드</span>와 
-                              <span className="font-bold text-green-600"> {treeStats.leaves}개의 리프</span>로 구성되어 있어요
-                            </p>
-                            <p>• 실제 트리 깊이는 <span className="font-bold text-orange-600">{treeStats.maxDepth}단계</span>입니다</p>
-                          </div>
-                        </div>
-
-                        <div className="bg-indigo-50 p-4 rounded-lg">
-                          <p className="text-sm font-semibold text-indigo-900 mb-2">💡 어떻게 작동하나요?</p>
-                          <p className="text-sm text-gray-700 leading-relaxed">
-                            의사결정 트리는 <span className="font-bold text-blue-600">데이터를 가장 잘 나눌 수 있는 질문</span>을 
-                            찾아요. "X좌표가 300보다 작나요?" 같은 질문으로 
-                            데이터를 <span className="font-bold text-green-600">순수한 그룹</span>으로 나누려고 해요. 
-                            모든 데이터가 같은 클래스가 되거나, 더 이상 나눌 수 없을 때까지 이 과정을 반복합니다!
-                          </p>
-                        </div>
-
-                        {(minLeafInstances < 3 || maxDepth > 10) && (
-                          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
-                            <p className="text-sm font-semibold text-yellow-900 mb-1">⚠️ 과적합 주의!</p>
-                            <p className="text-sm text-gray-700">
-                              파라미터 설정이 너무 자유로우면 훈련 데이터에만 잘 맞고 
-                              새로운 데이터는 잘 분류하지 못할 수 있어요 (과적합).
-                            </p>
-                          </div>
-                        )}
-                      </div>
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
+                  <span className="text-xl" onClick={handleTreeClick} style={{ cursor: 'pointer' }}>🌲</span><span>만들어진 트리</span>
+                </h3>
+                <div className="bg-white rounded-lg shadow-inner p-4 border-2 border-gray-300 overflow-auto" style={{ maxHeight: '600px' }}>
+                  {tree ? (
+                    <canvas ref={treeCanvasRef} className="block" />
+                  ) : (
+                    <div className="text-center py-16 text-gray-400">
+                      <p className="text-lg font-semibold mb-2">트리가 아직 만들어지지 않았어요</p>
+                      <p className="text-base">데이터를 추가하고 '학습 시작!' 버튼을 눌러 보세요</p>
                     </div>
                   )}
                 </div>
+                {tree && (
+                  <div className="mt-3 bg-purple-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-700">
+                      <span className="font-bold">💜 보라 상자</span>: 질문(X 또는 Y 값을 기준으로 나눔) |
+                      <span className="font-bold ml-2">🔴 빨강</span>: 그룹 A |
+                      <span className="font-bold ml-2">🔵 파랑</span>: 그룹 B |
+                      <span className="font-bold ml-2">🟢 초록</span>: 그룹 C · 잎 안의 숫자는 그 칸에 모인 데이터 수예요.
+                    </p>
+                  </div>
+                )}
+              </div>
 
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                  <h3 className="font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <span className="text-xl" onClick={handleTreeClick} style={{cursor:'pointer'}}>🌲</span>
-                    <span>트리 구조</span>
-                  </h3>
-                  <div className="bg-white rounded-lg shadow-inner p-4 border-2 border-gray-300 overflow-auto" style={{maxHeight: '600px'}}>
-                    {tree ? (
-                      <canvas ref={treeCanvasRef} 
-                        className="block" />
-                    ) : (
-                      <div className="text-center py-20 text-gray-400">
-                        <p className="text-lg font-semibold mb-2">트리가 아직 만들어지지 않았어요</p>
-                        <p className="text-sm">데이터를 추가하고 '학습 시작!' 버튼을 눌러보세요</p>
-                      </div>
-                    )}
-                  </div>
-                  {tree && (
-                    <div className="mt-3 bg-purple-50 p-3 rounded-lg">
-                      <p className="text-xs text-gray-700">
-                        <span className="font-bold">💜 보라색 노드</span>: 질문 노드 (X 또는 Y 축으로 분할) | 
-                        <span className="font-bold ml-2">🔴 빨간색 노드</span>: 클래스 A | 
-                        <span className="font-bold ml-2">🔵 파란색 노드</span>: 클래스 B | 
-                        <span className="font-bold ml-2">🟢 초록색 노드</span>: 클래스 C
-                      </p>
-                    </div>
-                  )}
-                </div>
+              <div className="flex flex-wrap justify-center gap-5 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2"><div className="w-5 h-5 bg-red-500 rounded-full border-2 border-gray-800"></div><span className="text-base text-gray-700">그룹 A</span></div>
+                <div className="flex items-center gap-2"><div className="w-5 h-5 bg-blue-500 rounded-full border-2 border-gray-800"></div><span className="text-base text-gray-700">그룹 B</span></div>
+                <div className="flex items-center gap-2"><div className="w-5 h-5 bg-green-500 rounded-full border-2 border-gray-800"></div><span className="text-base text-gray-700">그룹 C</span></div>
+                <div className="flex items-center gap-2"><div className="w-5 h-1 bg-green-600"></div><span className="text-base text-gray-700">결정 경계선</span></div>
+              </div>
 
-                <div className="flex justify-center gap-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-red-500 rounded-full border-2 border-gray-800"></div>
-                    <span className="font-medium text-gray-700">클래스 A</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-blue-500 rounded-full border-2 border-gray-800"></div>
-                    <span className="font-medium text-gray-700">클래스 B</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-5 bg-green-500 rounded-full border-2 border-gray-800"></div>
-                    <span className="font-medium text-gray-700">클래스 C</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-5 h-1 bg-green-600"></div>
-                    <span className="font-medium text-gray-700">결정 경계선</span>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-5 rounded-lg border border-purple-200">
-                  <h3 className="text-lg font-bold text-purple-900 mb-3">🧠 파라미터가 트리에 미치는 영향</h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-bold text-purple-600 mb-2">🔢 리프 노드 최소 개수</h4>
-                      <p className="text-sm text-gray-700">
-                        마지막 노드(리프)에 있어야 하는 최소 데이터 개수예요. 
-                        <span className="font-bold text-blue-600"> 값이 크면</span> 트리가 단순해지고, 
-                        <span className="font-bold text-red-600"> 값이 작으면</span> 세밀한 분류가 가능해요.
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-bold text-purple-600 mb-2">🔍 최소 분할 크기</h4>
-                      <p className="text-sm text-gray-700">
-                        이 크기보다 작은 그룹은 더 이상 나누지 않아요. 
-                        <span className="font-bold text-blue-600"> 값이 크면</span> 일찍 멈춰서 단순한 트리가 되고, 
-                        <span className="font-bold text-red-600"> 값이 작으면</span> 더 많이 나눠요.
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-bold text-purple-600 mb-2">📊 최대 깊이</h4>
-                      <p className="text-sm text-gray-700">
-                        트리가 얼마나 깊어질 수 있는지 제한해요. 
-                        <span className="font-bold text-blue-600"> 깊이가 작으면</span> 단순한 트리, 
-                        <span className="font-bold text-red-600"> 깊이가 크면</span> 복잡하고 세밀한 트리가 만들어져요.
-                      </p>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-bold text-purple-600 mb-2">🎯 다수 기준(%)</h4>
-                      <p className="text-sm text-gray-700">
-                        한 클래스가 이 비율 이상이면 더 이상 나누지 않아요. 
-                        <span className="font-bold text-blue-600"> 90%면</span> 조금만 섞여도 계속 나누고, 
-                        <span className="font-bold text-red-600"> 50%면</span> 반반만 되어도 멈춰요.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-blue-50 to-cyan-50 p-5 rounded-lg border border-blue-200">
-                  <h3 className="text-lg font-bold text-blue-900 mb-3">🎓 의사결정 트리의 장단점</h3>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-bold text-green-600 mb-2">✅ 장점</h4>
-                      <ul className="text-sm text-gray-700 space-y-1">
-                        <li>• 이해하기 쉽고 해석이 직관적이에요</li>
-                        <li>• 시각화가 가능해서 설명하기 좋아요</li>
-                        <li>• 숫자 데이터와 범주형 데이터 모두 사용 가능해요</li>
-                        <li>• 데이터 전처리가 거의 필요 없어요</li>
-                        <li>• 3개 이상의 클래스도 분류할 수 있어요</li>
-                      </ul>
-                    </div>
-                    <div className="bg-white p-4 rounded-lg shadow-sm">
-                      <h4 className="font-bold text-red-600 mb-2">⚠️ 단점</h4>
-                      <ul className="text-sm text-gray-700 space-y-1">
-                        <li>• 과적합되기 쉬워요 (훈련 데이터에만 잘 맞음)</li>
-                        <li>• 데이터가 조금만 바뀌어도 트리가 크게 달라져요</li>
-                        <li>• 복잡한 관계는 표현하기 어려워요</li>
-                        <li>• 대각선 경계선은 만들기 어려워요</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-base text-gray-700 leading-relaxed">
+                💬 이 화면의 트리는 항상 "예/아니오" 두 갈래로만 나뉘어요. 또 Orange의 Tree와는 질문을 고르는 세부 계산법이 조금 달라서, 숫자가 완전히 같지는 않을 수 있어요.
               </div>
             </div>
           </div>
@@ -934,8 +1192,1052 @@
       );
     };
 
-    const root = ReactDOM.createRoot(document.getElementById('root'));
-    root.render(<DecisionTreeDemo />);
+    const LabTab = () => (
+      <div className="slide-in">
+        <TreeLab />
+      </div>
+    );
+
+    /* ═════════════ 탭4: 옵션 5가지 ═════════════ */
+    const OPT_TONE = {
+      blue:   { box: 'bg-blue-50 border-blue-200',     title: 'text-blue-800',   badge: 'bg-blue-100 text-blue-700' },
+      green:  { box: 'bg-green-50 border-green-200',   title: 'text-green-800',  badge: 'bg-green-100 text-green-700' },
+      orange: { box: 'bg-orange-50 border-orange-200', title: 'text-orange-800', badge: 'bg-orange-100 text-orange-700' },
+      purple: { box: 'bg-purple-50 border-purple-200', title: 'text-purple-800', badge: 'bg-purple-100 text-purple-700' },
+      amber:  { box: 'bg-amber-50 border-amber-300',   title: 'text-amber-800',  badge: 'bg-amber-100 text-amber-700' },
+    };
+    const OptionShell = ({ no, tone, ko, en, def, meaning, why, children }) => {
+      const t = OPT_TONE[tone];
+      return (
+        <div className={`${t.box} border-2 rounded-xl p-5`}>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h3 className={`text-lg font-bold ${t.title}`}>{no}. {ko}</h3>
+              <p className="text-sm text-gray-500">Orange 옵션 이름: {en}</p>
+            </div>
+            <span className={`${t.badge} px-3 py-1 rounded-full font-bold text-sm`}>기본값 {def}</span>
+          </div>
+          <div className="grid md:grid-cols-2 gap-3 mb-4">
+            <div className="bg-white rounded-lg p-3 shadow-sm"><p className="text-sm font-bold text-gray-500 mb-1">쉬운 말로 하면</p><p className="text-base text-gray-700 leading-relaxed">{meaning}</p></div>
+            <div className="bg-white rounded-lg p-3 shadow-sm"><p className="text-sm font-bold text-gray-500 mb-1">왜 필요할까?</p><p className="text-base text-gray-700 leading-relaxed">{why}</p></div>
+          </div>
+          <div className="bg-white rounded-lg p-4 shadow-sm">{children}</div>
+        </div>
+      );
+    };
+
+    /* 1) Induce binary tree */
+    const BinaryDemo = () => {
+      const [on, setOn] = useState(true);
+      return (
+        <div>
+          <label className="flex items-center gap-2 font-bold text-gray-700 cursor-pointer mb-3">
+            <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} className="w-5 h-5" />
+            Induce binary tree {on ? '☑ 체크함' : '☐ 체크 안 함'}
+          </label>
+          {on ? (
+            <div className="slide-in text-center" key="on">
+              <p className="text-base text-green-700 font-bold mb-2">✅ 질문이 항상 "예/아니오" 두 갈래예요</p>
+              <div className="flex justify-center"><MiniTree node={{ q: '매워?', yes: { r: '짬뽕' }, no: { r: '짜장' } }} /></div>
+            </div>
+          ) : (
+            <div className="slide-in text-center" key="off">
+              <p className="text-base text-rose-700 font-bold mb-2">⚠️ 여러 갈래로 갈라질 수 있어요 (트리가 복잡해져요)</p>
+              <div className="flex justify-center">
+                <div className="mt-node">
+                  <div className="px-3 py-2 rounded-lg border-2 text-sm font-bold bg-indigo-50 border-indigo-300 text-indigo-800">색깔이 뭐야?</div>
+                  <div className="mt-children">
+                    {[['빨강', 'bg-red-100 border-red-400 text-red-800'], ['파랑', 'bg-blue-100 border-blue-400 text-blue-800'], ['노랑', 'bg-amber-100 border-amber-400 text-amber-800']].map(([l, c]) => (
+                      <div key={l} className="mt-child">
+                        <div className={`px-3 py-2 rounded-lg border-2 text-sm font-bold ${c}`}>{l}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <p className="text-base text-gray-600 mt-3 text-center">체크하면 트리 구조가 훨씬 깔끔해지고, 컴퓨터가 계산하기도 쉬워져요.</p>
+        </div>
+      );
+    };
+
+    /* 2) Min. number of instances in leaves
+       자료 8개: 짬뽕 3개(물이 많음) / 물이 적은 5개 = 쫄면 3개 + 짜장 2개  (수업 자료 예시) */
+    const buildMinLeafTree = (k) => {
+      const canSplit8 = 3 >= k;   // 8개 → 3개 + 5개 (작은 쪽 3개)
+      const canSplit5 = 2 >= k;   // 5개 → 3개 + 2개 (작은 쪽 2개)
+      if (!canSplit8) return { r: '섞임 8개 (짬뽕·쫄면·짜장)' };
+      return {
+        q: '물이 많니? (자료 8개)',
+        yes: { r: '짬뽕 3개' },
+        no: canSplit5
+          ? { q: '매워? (5개)', yes: { r: '쫄면 3개' }, no: { r: '짜장 2개' } }
+          : { r: '쫄면·짜장 섞임 5개' },
+      };
+    };
+    const MinLeafDemo = () => {
+      const [k, setK] = useState(2);
+      const cases = [
+        { name: '처음 자료 8개', dots: [DOT_RED, DOT_RED, DOT_RED, DOT_GREEN, DOT_GREEN, DOT_GREEN, DOT_BLUE, DOT_BLUE], split: '3개 + 5개', small: 3 },
+        { name: '물이 적은 그룹 5개', dots: [DOT_GREEN, DOT_GREEN, DOT_GREEN, DOT_BLUE, DOT_BLUE], split: '3개 + 2개', small: 2 },
+        { name: '물이 많은 그룹 3개', dots: [DOT_RED, DOT_RED, DOT_RED], split: '2개 + 1개', small: 1 },
+      ];
+      const msg = {
+        1: '⚠️ 1로 하면 데이터 1개짜리 잎도 만들 수 있어요. 우연히 섞인 예외 하나까지 외우게 되는 과대적합이 생길 수 있어요.',
+        2: '기본값이에요. 5개 그룹은 3개 + 2개로 나눌 수 있지만, 3개 그룹은 나누면 2개 + 1개가 돼서 1개짜리 잎이 생기니까 나눌 수 없어요.',
+        3: '5개 그룹을 나누면 3개 + 2개인데, 2개짜리 잎은 기준(3개)보다 적어서 안 돼요. 그래서 쫄면과 짜장이 섞인 채로 멈춰요.',
+        4: '첫 질문으로 나눠도 3개짜리 잎이 생기는데, 기준(4개)보다 적어서 안 돼요. 질문을 하나도 못 만들고 한 칸에 모두 몰려 있어요. (너무 단순)',
+      };
+      return (
+        <div>
+          <label className="text-base font-bold text-gray-700 block mb-1">잎 최소 데이터 수: <span className="text-orange-600 text-xl">{k}</span> <span className="font-normal text-sm text-gray-500">(기본값 2)</span></label>
+          <input type="range" min="1" max="4" value={k} onChange={(e) => setK(parseInt(e.target.value))} className="w-full mb-3" />
+
+          <p className="text-base font-bold text-gray-700 mb-2">🌲 만들어지는 트리 <span className="font-normal text-sm text-gray-500">(짬뽕 3개 · 쫄면 3개 · 짜장 2개, 총 8개 자료)</span></p>
+          <div className="overflow-x-auto bg-gray-50 rounded-lg border border-gray-200 p-3 mb-3">
+            <div className="min-w-[420px] flex justify-center"><MiniTree key={k} node={buildMinLeafTree(k)} /></div>
+          </div>
+
+          <p className="text-base font-bold text-gray-700 mb-2">✂️ 나눠 볼까? <span className="font-normal text-sm text-gray-500">(나눈 뒤 가장 작은 잎이 {k}개 이상이어야 해요)</span></p>
+          <div className="grid md:grid-cols-3 gap-3">
+            {cases.map(g => {
+              const ok = g.small >= k;
+              return (
+                <div key={g.name} className={`rounded-lg border-2 p-3 ${ok ? 'bg-green-50 border-green-300' : 'bg-gray-100 border-gray-300'}`}>
+                  <p className="font-bold text-gray-700 mb-2">{g.name}</p>
+                  <div className="flex flex-wrap gap-1 mb-2">{g.dots.map((c, i) => <Dot key={i} c={c} />)}</div>
+                  <p className="text-base text-gray-600">나눈다면 <b>{g.split}</b> (작은 쪽 {g.small}개)</p>
+                  <p className={`text-base font-bold mt-1 ${ok ? 'text-green-700' : 'text-gray-500'}`}>
+                    {ok ? '✂️ 나눌 수 있어요' : `🔒 나눌 수 없어요 (${g.small}개 < ${k}개)`}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          <p className={`text-base mt-3 p-3 rounded-lg border ${k === 2 ? 'bg-green-50 border-green-300 text-green-800' : 'bg-orange-50 border-orange-300 text-orange-800'}`}>{msg[k]}</p>
+          <p className="text-sm text-gray-500 mt-2">※ 잎에 데이터가 너무 적으면 우연히 일어난 일(오류)에 휘둘릴 수 있어서, 최소한의 개수를 정해 둬요.</p>
+        </div>
+      );
+    };
+
+    /* 트리 보여주는 상자(옵션 2~5 공통) */
+    const DemoTree = ({ caption, children }) => (
+      <>
+        <p className="text-base font-bold text-gray-700 mb-2">🌲 만들어지는 트리 <span className="font-normal text-sm text-gray-500">{caption}</span></p>
+        <div className="overflow-x-auto bg-gray-50 rounded-lg border border-gray-200 p-3 mb-3">
+          <div className="min-w-[420px] flex justify-center">{children}</div>
+        </div>
+      </>
+    );
+
+    /* 3) Do not split subsets smaller than
+       자료 8개 (짬뽕 3 / 쫄면 3 + 짜장 2) — 잎 최소 데이터 수는 기본값 2로 둠 */
+    const buildMinSplitTree = (v) => {
+      if (8 < v) return { r: '섞임 8개 (짬뽕·쫄면·짜장)' };
+      return {
+        q: '물이 많니? (자료 8개)',
+        yes: { r: '짬뽕 3개' },
+        no: 5 >= v
+          ? { q: '매워? (5개)', yes: { r: '쫄면 3개' }, no: { r: '짜장 2개' } }
+          : { r: '쫄면·짜장 섞임 5개' },
+      };
+    };
+    const MinSplitDemo = () => {
+      const [v, setV] = useState(5);
+      const groups = [{ n: 8, label: '처음 자료 8개' }, { n: 5, label: '물이 적은 그룹 5개' }, { n: 3, label: '물이 많은 그룹 3개' }];
+      const msg = v <= 5
+        ? `${v === 5 ? '기본값이에요. ' : ''}5개 그룹도 기준을 통과해서(5개 ≥ ${v}개) 끝까지 나눠요. 트리에서 "매워?" 질문이 만들어졌죠?`
+        : v <= 8
+          ? `5개 그룹은 ${v}개보다 적어서 더 나누지 않아요. 5개의 자료만 있으니 더 이상 나눌 수 없다고 보고, 쫄면과 짜장이 섞인 채로 멈춰요.`
+          : `자료가 8개뿐이라 ${v}개보다 적어서 첫 질문도 만들지 못해요. 트리가 만들어지지 않고 한 칸에 모두 몰려 있어요. (너무 단순)`;
+      return (
+        <div>
+          <label className="text-base font-bold text-gray-700 block mb-1">이보다 적은 그룹은 나누지 않아요: <span className="text-purple-600 text-xl">{v}</span> <span className="font-normal text-sm text-gray-500">(기본값 5)</span></label>
+          <input type="range" min="2" max="10" value={v} onChange={(e) => setV(parseInt(e.target.value))} className="w-full mb-3" />
+
+          <DemoTree caption="(짬뽕 3개 · 쫄면 3개 · 짜장 2개, 총 8개 자료)">
+            <MiniTree key={v} node={buildMinSplitTree(v)} />
+          </DemoTree>
+
+          <p className="text-base font-bold text-gray-700 mb-2">🔍 그룹마다 확인해 볼까? <span className="font-normal text-sm text-gray-500">(그룹 안 데이터가 {v}개보다 적으면 멈춰요)</span></p>
+          <div className="grid md:grid-cols-3 gap-3">
+            {groups.map(g => {
+              const stop = g.n < v;
+              const pure = g.n === 3;
+              return (
+                <div key={g.n} className={`rounded-lg border-2 p-3 text-center ${stop ? 'bg-gray-100 border-gray-300' : 'bg-green-50 border-green-300'}`}>
+                  <p className="font-bold text-gray-700">{g.label}</p>
+                  <p className="text-base text-gray-600 my-1">{g.n}개 {stop ? '<' : '≥'} {v}개</p>
+                  <p className={`text-base font-bold ${stop ? 'text-gray-500' : 'text-green-700'}`}>
+                    {stop ? '✋ 더 나누지 않아요' : pure ? '✅ 기준은 통과, 이미 모두 짬뽕이라 나눌 필요가 없어요' : '✂️ 나눌 수 있어요'}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+          <p className={`text-base mt-3 p-3 rounded-lg border ${v === 5 ? 'bg-green-50 border-green-300 text-green-800' : 'bg-orange-50 border-orange-300 text-orange-800'}`}>{msg}</p>
+          <p className="text-sm text-gray-500 mt-2">※ 데이터를 너무 잘게 자르면 트리가 복잡해지고 쓸모없는 규칙이 생길 수 있어서, 최소 몇 개 이상 있어야 나눌지 정하는 안전장치예요. (잎 최소 데이터 수는 기본값 2로 두었어요.)</p>
+        </div>
+      );
+    };
+
+    /* 4) Limit the maximal tree depth */
+    const DEPTH_TREE = {
+      q: '물이 많니?', maj: '섞여 있음',
+      yes: { r: '짬뽕' },
+      no: {
+        q: '매워?', maj: '짜장·쫄면 섞임',
+        no: { r: '짜장' },
+        yes: { q: '불나게 매워?', maj: '쫄면',
+          yes: { r: '쫄면' },
+          no: { r: '짜장 (예외 1개)' } },
+      },
+    };
+    const countMini = (node, depth, limit) => {
+      if (!node.q || depth >= limit) return { nodes: 0, leaves: 1 };
+      const a = countMini(node.yes, depth + 1, limit), b = countMini(node.no, depth + 1, limit);
+      return { nodes: 1 + a.nodes + b.nodes, leaves: a.leaves + b.leaves };
+    };
+    const DepthDemo = () => {
+      const [d, setD] = useState(2);
+      const c = countMini(DEPTH_TREE, 0, d);
+      const msg = {
+        1: '질문이 1개뿐이에요. 짜장과 쫄면이 한 칸에 섞여서 정확하게 분류하지 못해요. (너무 단순)',
+        2: '질문 2개로 세 가지를 잘 나눴어요. 깔끔하고 이해하기 쉬운 트리예요! 👍',
+        3: '우연히 섞인 예외 1개까지 맞히려고 질문을 하나 더 만들었어요. 규칙이 복잡해지고 외우기만 잘하는 나무가 돼요. (과대적합)',
+      };
+      return (
+        <div>
+          <label className="text-base font-bold text-gray-700 block mb-1">트리 최대 깊이: <span className="text-blue-600 text-xl">{d}</span> <span className="font-normal text-sm text-gray-500">(Orange 기본값은 100, 보통 5~10)</span></label>
+          <input type="range" min="1" max="3" value={d} onChange={(e) => setD(parseInt(e.target.value))} className="w-full mb-3" />
+
+          <DemoTree caption="(각 상자의 '깊이'는 뿌리에서 몇 번째 단계인지예요. 뿌리는 깊이 0)">
+            <MiniTree key={d} node={DEPTH_TREE} limit={d} showDepth={true} />
+          </DemoTree>
+
+          <div className="flex flex-wrap gap-3 mb-3">
+            <span className="bg-purple-100 text-purple-800 font-bold px-3 py-1 rounded-full text-base">질문(노드) {c.nodes}개</span>
+            <span className="bg-green-100 text-green-800 font-bold px-3 py-1 rounded-full text-base">잎(결과) {c.leaves}개</span>
+            <span className="bg-blue-100 text-blue-800 font-bold px-3 py-1 rounded-full text-base">깊이가 깊을수록 규칙이 많아져요</span>
+          </div>
+          <p className={`text-base p-3 rounded-lg border ${d === 2 ? 'bg-green-50 border-green-300 text-green-800' : 'bg-orange-50 border-orange-300 text-orange-800'}`}>{msg[d]}</p>
+          <p className="text-sm text-gray-500 mt-2">※ 너무 깊게 뻗으면 규칙이 너무 복잡해져서 외우기만 잘하는 나무가 돼요. 이것을 과대적합이라고 불러요. 깊이를 제한하면 "여기까지만!" 하고 멈춰요.</p>
+        </div>
+      );
+    };
+
+    /* 5) Stop when majority reaches */
+    const MajorityDemo = () => {
+      const [other, setOther] = useState(1);
+      const [th, setTh] = useState(95);
+      const total = 20;
+      const main = total - other;
+      const pct = Math.round((main / total) * 100);
+      const stop = pct >= th;
+      const tree = stop
+        ? { r: other === 0 ? `떡볶이 ${main}명 (100%) ✋ 멈춤` : `떡볶이 ${main}명 + 순대 ${other}명 (${pct}%) ✋ 멈춤` }
+        : { q: `순대를 좋아해? (${total}명)`, yes: { r: `순대 ${other}명` }, no: { r: `떡볶이 ${main}명` } };
+      return (
+        <div>
+          <div className="grid md:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label className="text-base font-bold text-gray-700 block mb-1">"순대"라고 답한 친구: <span className="text-pink-600 text-xl">{other}명</span></label>
+              <input type="range" min="0" max="8" value={other} onChange={(e) => setOther(parseInt(e.target.value))} className="w-full" />
+            </div>
+            <div>
+              <label className="text-base font-bold text-gray-700 block mb-1">멈추는 기준: <span className="text-amber-600 text-xl">{th}%</span> <span className="font-normal text-sm text-gray-500">(기본값 95)</span></label>
+              <input type="range" min="60" max="100" step="5" value={th} onChange={(e) => setTh(parseInt(e.target.value))} className="w-full" />
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-1 mb-2">
+            {Array.from({ length: total }).map((_, i) => (
+              <span key={i} className={`w-8 h-8 rounded-full flex items-center justify-center text-sm border-2 ${i < main ? 'bg-red-100 border-red-400' : 'bg-amber-100 border-amber-500'}`}>{i < main ? '🍢' : '🌭'}</span>
+            ))}
+          </div>
+          <p className="text-base text-gray-700 mb-3">반 친구 {total}명 중 {main}명이 "떡볶이", {other}명이 "순대" → 같은 답 비율 {main} ÷ {total} = <b>{pct}%</b></p>
+
+          <DemoTree caption="(반 친구 20명의 간식 취향)">
+            <MiniTree key={`${other}-${th}`} node={tree} />
+          </DemoTree>
+
+          <p className={`text-base font-bold p-3 rounded-lg border ${stop ? 'bg-green-50 border-green-300 text-green-800' : 'bg-orange-50 border-orange-300 text-orange-800'}`}>
+            {stop ? `✋ ${pct}% ≥ ${th}% → 이미 거의 다 같은 답이니까 더 나눌 필요가 없어요. 여기서 멈춰요!` : `✂️ ${pct}% < ${th}% → 아직 다른 답이 꽤 섞여 있어서 질문을 더 만들어 계속 나눠요.`}
+          </p>
+          <p className="text-sm text-gray-500 mt-2">※ 기준을 낮추면 일찍 멈춰서 트리가 단순해지고, 기준을 높이면 조금만 섞여도 계속 나눠서 트리가 복잡해져요.</p>
+        </div>
+      );
+    };
+
+    const OPT_TABLE = [
+      ['Induce binary tree', '질문을 예/아니오 두 갈래로', '체크', '체크', '체크'],
+      ['Min. number of instances in leaves', '잎에 들어갈 최소 데이터 개수', '2', '2', '3'],
+      ['Do not split subsets smaller than', '이보다 적은 그룹은 나누지 않음', '5', '5', '10'],
+      ['Limit the maximal tree depth to', '트리의 최대 깊이', '100', '10', '12'],
+      ['Stop when majority reaches [%]', '같은 답 비율이 넘으면 멈춤', '95', '95', '90'],
+    ];
+
+    const OptionsTab = () => (
+      <div className="slide-in space-y-6">
+        <Tip>Orange의 Tree 위젯에는 트리의 모양을 정하는 옵션이 5개 있어요. 슬라이더를 움직여서 옵션마다 트리가 어떻게 달라지는지 확인해 보세요.</Tip>
+        <OptionShell no="1" tone="blue" ko="질문을 두 갈래로만 만들기" en="Induce binary tree" def="체크"
+          meaning="체크하면 한 번에 두 그룹으로만 나뉘는 트리를 만들어요. 스무고개에서 답이 무조건 '예' 또는 '아니오' 딱 두 가지만 나오게 질문을 만들라는 뜻이에요."
+          why="'빨강, 파랑, 노랑 중 무엇인가요?' 같은 복잡한 선택지 대신 두 갈래 질문만 쓰면 트리가 깔끔해져요.">
+          <BinaryDemo />
+        </OptionShell>
+        <OptionShell no="2" tone="orange" ko="잎에 들어갈 최소 데이터 수" en="Min. number of instances in leaves" def="2"
+          meaning="끝(잎)에 도착했을 때, 그 잎에 속한 데이터가 최소한 이 숫자보다 많거나 같아야 해요."
+          why="너무 적은 데이터만 보고 우연히 일어난 일(오류)에 영향을 받지 않도록 막아 줘요. (과대적합 방지)">
+          <MinLeafDemo />
+        </OptionShell>
+        <OptionShell no="3" tone="purple" ko="이보다 적으면 나누지 않기" en="Do not split subsets smaller than" def="5"
+          meaning="데이터가 너무 적은 그룹은 더 이상 나누지 말라는 뜻이에요."
+          why="데이터를 너무 잘게 자르면 트리가 복잡해지고 쓸모없는 규칙이 생길 수 있어요. 최소 몇 개 이상 있어야 나눌 수 있는지 정하는 안전장치예요.">
+          <MinSplitDemo />
+        </OptionShell>
+        <OptionShell no="4" tone="blue" ko="트리의 최대 깊이" en="Limit the maximal tree depth to" def="100 (보통 5~10이 적당)"
+          meaning="나무가 최대 몇 단계까지 깊어질 수 있는지 제한해요. 뿌리 → 첫 번째 가지 → 두 번째 가지… 정한 깊이까지만 허용하고, 그 이후로는 멈춰요."
+          why="너무 깊게 뻗으면 규칙이 너무 복잡해져서 외우기만 잘하는 나무(과대적합)가 될 수 있어요.">
+          <DepthDemo />
+        </OptionShell>
+        <OptionShell no="5" tone="amber" ko="같은 답이 이 비율이면 멈추기" en="Stop when majority reaches [%]" def="95%"
+          meaning="한 그룹 안에서 같은 답을 가진 것들이 몇 % 이상이면 더 이상 나누지 않는다는 뜻이에요."
+          why="어떤 그룹의 거의 대부분이 같은 답이라면 더 나눌 필요가 없겠죠? 예: 20명 중 19명이 떡볶이면 19 ÷ 20 = 95%예요.">
+          <MajorityDemo />
+        </OptionShell>
+
+        <div className="bg-white border-2 border-indigo-200 rounded-xl p-5">
+          <h3 className="text-lg font-bold text-indigo-900 mb-3">📌 옵션 한눈에 정리</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-base border-collapse min-w-[600px]">
+              <thead>
+                <tr className="bg-indigo-50 text-indigo-900">
+                  <th className="border border-indigo-200 p-2 text-left">옵션</th>
+                  <th className="border border-indigo-200 p-2 text-left">쉬운 말로</th>
+                  <th className="border border-indigo-200 p-2">기본값</th>
+                  <th className="border border-indigo-200 p-2">2그룹</th>
+                  <th className="border border-indigo-200 p-2">3그룹</th>
+                </tr>
+              </thead>
+              <tbody>
+                {OPT_TABLE.map(r => (
+                  <tr key={r[0]} className="odd:bg-white even:bg-gray-50">
+                    <td className="border border-gray-200 p-2 font-bold text-gray-700">{r[0]}</td>
+                    <td className="border border-gray-200 p-2 text-gray-600">{r[1]}</td>
+                    <td className="border border-gray-200 p-2 text-center">{r[2]}</td>
+                    <td className="border border-gray-200 p-2 text-center font-bold text-blue-700">{r[3]}</td>
+                    <td className="border border-gray-200 p-2 text-center font-bold text-green-700">{r[4]}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4 bg-yellow-50 border border-yellow-300 rounded-lg p-4 space-y-1 text-base text-gray-700">
+            <p>• 데이터 수가 <b>많을수록</b> 더 깊은 트리(깊이 10~12)도 괜찮아요.</p>
+            <p>• 데이터가 <b>적을수록</b> 깊이를 줄이고(5~7), 최소 데이터 수를 늘려야 안정적이에요.</p>
+            <p>• 트리가 너무 복잡하게 나왔다면 → <b>최대 깊이를 줄이거나</b>, <b>'같은 답 비율' 기준을 낮춰서</b>(예: 95 → 90) 일찍 멈추게 해요.</p>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ═════════════ 탭5: Orange 실습 ═════════════ */
+    /* 산점도 점 위치는 이진분류훈련.csv / 다중분류훈련.csv 값과 같아요. */
+    const PTS_JJAJANG = [[1.5,1.8],[1.6,1.4],[1.7,2.2],[1.8,1.3],[2.0,2.3],[2.1,2.0],[2.3,1.7],[2.5,2.8],[3.0,3.8],[3.2,3.3],[3.8,3.5],[3.8,4.0],[4.5,1.2],[5.0,1.6],[5.5,2.0]];
+    const PTS_JJAMPPONG = [[3.5,6.1],[3.9,6.0],[5.0,4.0],[5.2,5.5],[5.4,5.9],[5.6,5.4],[5.8,5.3],[6.0,6.3],[6.1,6.0],[6.3,5.7],[6.5,6.8],[6.8,6.5],[7.0,4.0],[7.1,7.5],[7.2,7.1]];
+    const PTS_JJOLMYEON = [[6.2,2.5],[6.3,3.1],[6.4,2.9],[6.5,2.8],[6.6,2.4],[6.7,3.2],[6.8,2.3],[6.9,2.6],[7.0,3.3],[7.1,3.0],[7.2,2.8],[7.3,2.7]];
+    const TEST_ROWS = [
+      { n: 1, x: 4.5, y: 4.5, truth: '짜장' },
+      { n: 2, x: 4.5, y: 3.0, truth: '짜장' },
+      { n: 3, x: 4.5, y: 6.0, truth: '짬뽕' },
+      { n: 4, x: 7.0, y: 1.0, truth: '짜장' },
+    ];
+
+    /* 트리 규칙 (Orange Tree Viewer 결과) */
+    const treeSteps = (group, x, y) => {
+      if (group === 2) {
+        if (y <= 3.8) return { result: '짜장', steps: [`물의 양 ${y.toFixed(1)} ≤ 3.8 ? → 예`] };
+        if (x <= 3.8) return { result: '짜장', steps: [`물의 양 ${y.toFixed(1)} ≤ 3.8 ? → 아니오`, `매운 정도 ${x.toFixed(1)} ≤ 3.8 ? → 예`] };
+        return { result: '짬뽕', steps: [`물의 양 ${y.toFixed(1)} ≤ 3.8 ? → 아니오`, `매운 정도 ${x.toFixed(1)} ≤ 3.8 ? → 아니오`] };
+      }
+      if (y > 3.8) return { result: '짬뽕', steps: [`물의 양 ${y.toFixed(1)} ≤ 3.8 ? → 아니오`] };
+      if (x <= 5.5) return { result: '짜장', steps: [`물의 양 ${y.toFixed(1)} ≤ 3.8 ? → 예`, `매운 정도 ${x.toFixed(1)} ≤ 5.5 ? → 예`] };
+      return { result: '쫄면', steps: [`물의 양 ${y.toFixed(1)} ≤ 3.8 ? → 예`, `매운 정도 ${x.toFixed(1)} ≤ 5.5 ? → 아니오`] };
+    };
+    const TREE_2 = {
+      q: '물의 양이 3.8 이하?',
+      yes: { r: '짜장 100% (14/14)' },
+      no: { q: '매운 정도가 3.8 이하?', yes: { r: '짜장 50% (1/2)' }, no: { r: '짬뽕 100% (14/14)' } },
+    };
+    const TREE_3 = {
+      q: '물의 양이 3.8 이하?',
+      yes: { q: '매운 정도가 5.5 이하?', yes: { r: '짜장 100% (14/14)' }, no: { r: '쫄면 100% (12/12)' } },
+      no: { r: '짬뽕 93.8% (15/16)' },
+    };
+    /* kNN, SVM, Tree 예측 (수업 자료의 Predictions 화면) */
+    const ORANGE_PRED = {
+      2: { knn: ['짬뽕', '짜장', '짬뽕', '짜장'], svm: ['짬뽕', '짜장', '짬뽕', '짜장'], tree: ['짬뽕', '짜장', '짬뽕', '짜장'] },
+      3: { knn: ['짬뽕', '짜장', '짬뽕', '쫄면'], svm: ['짬뽕', '짜장', '짬뽕', '쫄면'], tree: ['짬뽕', '짜장', '짬뽕', '쫄면'] },
+    };
+
+    const ScatterPlot = ({ group, showTest, probe, showLines = true }) => {
+      const W = 520, H = 430, L = 56, B = 42, T = 14, R = 14;
+      const sx = (v) => L + ((v - 1) / 7) * (W - L - R);
+      const sy = (v) => H - B - ((v - 1) / 7) * (H - B - T);
+      const ticks = [1, 2, 3, 4, 5, 6, 7, 8];
+      const lineCol = '#dc2626';
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-xl mx-auto bg-white rounded-lg border border-gray-200">
+          {ticks.map(t => (
+            <g key={t}>
+              <line x1={sx(t)} y1={T} x2={sx(t)} y2={H - B} stroke="#eef2ff" />
+              <line x1={L} y1={sy(t)} x2={W - R} y2={sy(t)} stroke="#eef2ff" />
+              <text x={sx(t)} y={H - B + 18} textAnchor="middle" fontSize="13" fill="#4b5563">{t}</text>
+              <text x={L - 8} y={sy(t) + 4} textAnchor="end" fontSize="13" fill="#4b5563">{t}</text>
+            </g>
+          ))}
+          <line x1={L} y1={H - B} x2={W - R} y2={H - B} stroke="#374151" strokeWidth="1.5" />
+          <line x1={L} y1={T} x2={L} y2={H - B} stroke="#374151" strokeWidth="1.5" />
+          <text x={(L + W - R) / 2} y={H - 8} textAnchor="middle" fontSize="14" fontWeight="700" fill="#374151">매운 정도</text>
+          <text x="16" y={(T + H - B) / 2} textAnchor="middle" fontSize="14" fontWeight="700" fill="#374151" transform={`rotate(-90 16 ${(T + H - B) / 2})`}>물의 양</text>
+
+          {/* 트리가 나누는 기준선 */}
+          {showLines && <line x1={L} y1={sy(3.8)} x2={W - R} y2={sy(3.8)} stroke={lineCol} strokeWidth="2" strokeDasharray="6 4" />}
+          {showLines && (group === 2
+            ? <line x1={sx(3.8)} y1={T} x2={sx(3.8)} y2={sy(3.8)} stroke={lineCol} strokeWidth="2" strokeDasharray="6 4" />
+            : <line x1={sx(5.5)} y1={sy(3.8)} x2={sx(5.5)} y2={H - B} stroke={lineCol} strokeWidth="2" strokeDasharray="6 4" />)}
+
+          {PTS_JJAJANG.map(([x, y], i) => <circle key={'a' + i} cx={sx(x)} cy={sy(y)} r="7" fill="#7dd3fc" stroke="#0284c7" opacity="0.85" />)}
+          {PTS_JJAMPPONG.map(([x, y], i) => <circle key={'b' + i} cx={sx(x)} cy={sy(y)} r="7" fill="#fca5a5" stroke="#dc2626" opacity="0.85" />)}
+          {group === 3 && PTS_JJOLMYEON.map(([x, y], i) => <circle key={'c' + i} cx={sx(x)} cy={sy(y)} r="7" fill="#bef264" stroke="#65a30d" opacity="0.9" />)}
+
+          {showTest && TEST_ROWS.map(r => (
+            <g key={r.n}>
+              <rect x={sx(r.x) - 9} y={sy(r.y) - 9} width="18" height="18" fill="none" stroke="#16a34a" strokeWidth="3" />
+              <circle cx={sx(r.x) + 14} cy={sy(r.y) - 14} r="10" fill="#dc2626" />
+              <text x={sx(r.x) + 14} y={sy(r.y) - 10} textAnchor="middle" fontSize="12" fontWeight="700" fill="#fff">{r.n}</text>
+            </g>
+          ))}
+          {probe && (
+            <g>
+              <circle cx={sx(probe.x)} cy={sy(probe.y)} r="11" fill="#fde047" stroke="#a16207" strokeWidth="3" />
+              <text x={sx(probe.x)} y={sy(probe.y) + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill="#713f12">?</text>
+            </g>
+          )}
+        </svg>
+      );
+    };
+
+    const ScatterLegend = ({ group, showLines = true }) => (
+      <div className="flex flex-wrap justify-center gap-4 mt-2 text-base text-gray-700">
+        <span className="flex items-center gap-1"><Dot c="bg-sky-300 border-sky-600" /> 짜장</span>
+        <span className="flex items-center gap-1"><Dot c="bg-red-300 border-red-600" /> 짬뽕</span>
+        {group === 3 && <span className="flex items-center gap-1"><Dot c="bg-lime-300 border-lime-600" /> 쫄면</span>}
+        {showLines && <span className="flex items-center gap-1"><span className="inline-block w-6 border-t-2 border-dashed border-red-600"></span> 트리가 나눈 기준선</span>}
+      </div>
+    );
+
+    const OrangeFlow = () => {
+      const W = ({ x, y, label, fill, dashed }) => (
+        <g>
+          <circle cx={x} cy={y} r="26" fill={fill} stroke={dashed ? '#9ca3af' : '#6b7280'} strokeWidth="2.5" strokeDasharray={dashed ? '5 3' : '0'} />
+          <text x={x} y={y + 47} textAnchor="middle" fontSize="14" fontWeight="700" fill={dashed ? '#6b7280' : '#1f2937'}>{label}</text>
+        </g>
+      );
+      const ln = (x1, y1, x2, y2, dashed) => <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={dashed ? '#cbd5e1' : '#94a3b8'} strokeWidth="2.5" strokeDasharray={dashed ? '5 3' : '0'} />;
+      return (
+        <svg viewBox="0 0 760 385" className="w-full min-w-[560px] max-w-3xl mx-auto">
+          {ln(96, 180, 244, 45)}{ln(96, 180, 244, 135, true)}{ln(96, 180, 244, 225, true)}{ln(96, 180, 244, 315)}
+          {ln(296, 315, 454, 315)}{ln(296, 315, 626, 198)}
+          {ln(296, 135, 626, 168, true)}{ln(296, 225, 626, 186, true)}
+          {ln(496, 45, 634, 156)}
+          <W x={70} y={180} label="File (훈련)" fill="#fed7aa" />
+          <W x={270} y={45} label="Scatter Plot" fill="#fecdd3" />
+          <W x={270} y={135} label="kNN" fill="#fbcfe8" dashed />
+          <W x={270} y={225} label="SVM" fill="#fbcfe8" dashed />
+          <W x={270} y={315} label="Tree" fill="#fbcfe8" />
+          <W x={480} y={315} label="Tree Viewer" fill="#fecdd3" />
+          <W x={470} y={45} label="File (테스트)" fill="#fed7aa" />
+          <W x={650} y={180} label="Predictions" fill="#a5f3fc" />
+        </svg>
+      );
+    };
+
+    const StepBlock = ({ title, children }) => (
+      <div className="bg-white rounded-lg border border-gray-200 p-4">
+        <p className="font-bold text-gray-800 mb-2">{title}</p>
+        {children}
+      </div>
+    );
+    const NumList = ({ items }) => (
+      <ol className="space-y-2">
+        {items.map((t, i) => (
+          <li key={i} className="flex gap-2 text-base text-gray-700">
+            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-red-500 text-white text-sm font-bold flex items-center justify-center">{i + 1}</span>
+            <span className="leading-relaxed">{t}</span>
+          </li>
+        ))}
+      </ol>
+    );
+
+    const CsvTable = ({ rows, head }) => (
+      <table className="text-base border-collapse">
+        <thead><tr className="bg-gray-100">{head.map(h => <th key={h} className="border border-gray-300 px-3 py-1">{h}</th>)}</tr></thead>
+        <tbody>{rows.map((r, i) => <tr key={i}>{r.map((c, j) => <td key={j} className="border border-gray-300 px-3 py-1 text-center">{c}</td>)}</tr>)}</tbody>
+      </table>
+    );
+
+    const ProbeCalculator = ({ group }) => {
+      const [x, setX] = useState(4.5);
+      const [y, setY] = useState(4.5);
+      const r = treeSteps(group, x, y);
+      return (
+        <div className="grid md:grid-cols-2 gap-5">
+          <div>
+            <ScatterPlot group={group} showTest={true} probe={{ x, y }} />
+            <ScatterLegend group={group} />
+            <p className="text-sm text-gray-500 text-center mt-1">초록 네모 ①~④가 테스트 데이터예요. 노란 ?는 아래 슬라이더로 움직이는 내 데이터예요.</p>
+          </div>
+          <div className="space-y-4">
+            <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-4">
+              <p className="font-bold text-yellow-900 mb-2">🔬 새 음식을 만들어서 트리에게 물어봐요</p>
+              <label className="text-base text-gray-700 block">매운 정도: <b>{x.toFixed(1)}</b></label>
+              <input type="range" min="1" max="8" step="0.1" value={x} onChange={(e) => setX(parseFloat(e.target.value))} className="w-full mb-2" />
+              <label className="text-base text-gray-700 block">물의 양: <b>{y.toFixed(1)}</b></label>
+              <input type="range" min="1" max="8" step="0.1" value={y} onChange={(e) => setY(parseFloat(e.target.value))} className="w-full" />
+            </div>
+            <div className={`rounded-lg border-2 p-4 ${leafTone(r.result)}`}>
+              <p className="font-bold mb-1">🌳 트리가 걸어간 길</p>
+              {r.steps.map((s, i) => <p key={i} className="text-base">{i + 1}단계: {s}</p>)}
+              <p className="text-2xl font-bold mt-2">👉 예측: {r.result}</p>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const PredictionsTable = ({ group }) => {
+      const pred = ORANGE_PRED[group];
+      const correct = TEST_ROWS.filter((r, i) => pred.tree[i] === r.truth).length;
+      const acc = Math.round((correct / TEST_ROWS.length) * 100);
+      const cell = (v, truth) => <td className={`border border-gray-300 px-3 py-2 text-center font-bold ${v === truth ? 'text-green-700' : 'text-red-600'}`}>{v}</td>;
+      return (
+        <div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-base border-collapse min-w-[520px]">
+              <thead>
+                <tr className="bg-cyan-50 text-cyan-900">
+                  {['번호', '매운 정도', '물의 양', '진짜 종류(정답)', 'kNN', 'SVM', 'Tree', 'Tree 채점'].map(h => <th key={h} className="border border-cyan-200 px-3 py-2">{h}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {TEST_ROWS.map((r, i) => (
+                  <tr key={r.n} className="odd:bg-white even:bg-gray-50">
+                    <td className="border border-gray-300 px-3 py-2 text-center font-bold">{r.n}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-center">{r.x.toFixed(1)}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-center">{r.y.toFixed(1)}</td>
+                    <td className="border border-gray-300 px-3 py-2 text-center bg-gray-200 font-bold">{r.truth}</td>
+                    {cell(pred.knn[i], r.truth)}{cell(pred.svm[i], r.truth)}{cell(pred.tree[i], r.truth)}
+                    <td className="border border-gray-300 px-3 py-2 text-center text-xl">{pred.tree[i] === r.truth ? '⭕' : '❌'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-3 flex items-center gap-3">
+            <div className="flex-1 h-4 bg-gray-200 rounded-full overflow-hidden"><div className="h-4 bg-gradient-to-r from-indigo-500 to-violet-500" style={{ width: `${acc}%` }}></div></div>
+            <p className="font-bold text-indigo-800 text-base whitespace-nowrap">Tree 정확도 {correct}/{TEST_ROWS.length} = {acc}%</p>
+          </div>
+          <p className="text-base text-gray-600 mt-2">
+            {group === 2
+              ? '1번 (4.5, 4.5)은 진짜 짜장인데 트리가 짬뽕이라고 예측해서 틀렸어요. 이렇게 새 데이터로 시험해 봐야 모델이 얼마나 잘 맞히는지 알 수 있어요.'
+              : '1번은 짬뽕으로 잘못 예측했고, 4번 (7.0, 1.0)은 훈련 데이터에 없던 위치라 쫄면이라고 예측해서 틀렸어요. 새로운 데이터가 훈련 데이터와 다르면 틀리기도 해요.'}
+          </p>
+        </div>
+      );
+    };
+
+    const ORANGE_STEPS = [
+      { id: 1, tab: 'Data 탭', title: 'File 위젯으로 훈련 데이터 불러오기' },
+      { id: 2, tab: 'Visualize 탭', title: 'Scatter Plot으로 데이터 살펴보기' },
+      { id: 3, tab: 'Model 탭', title: 'Tree 위젯 옵션 정하기' },
+      { id: 4, tab: 'Visualize 탭', title: 'Tree Viewer로 트리 보기' },
+      { id: 5, tab: 'Data 탭', title: '테스트 데이터 만들어 불러오기' },
+      { id: 6, tab: 'Evaluate 탭', title: 'Predictions로 예측 확인하기' },
+    ];
+    const TAB_COLOR = { 'Data 탭': 'bg-orange-100 text-orange-800 border-orange-300', 'Visualize 탭': 'bg-rose-100 text-rose-800 border-rose-300', 'Model 탭': 'bg-pink-100 text-pink-800 border-pink-300', 'Evaluate 탭': 'bg-cyan-100 text-cyan-800 border-cyan-300' };
+
+    /* 실습 파일: 구글 드라이브 공유 링크 (수업 자료 PPT에 걸려 있던 링크와 동일) */
+    const driveUrl = (id) => `https://drive.google.com/file/d/${id}/view?usp=sharing`;
+    const FILES = {
+      train2:   { name: '이진분류훈련.csv',   id: '1B58GeztFHJ6zds5xY9yiCYxDEHSieger' },
+      train3:   { name: '다중분류훈련.csv',   id: '1f3M-EMEVTmhZ6o1CLsqE-Xyqrwk2g3Bp' },
+      test:     { name: '분류테스트.csv',     id: '1pNPOXpcVPZ7efAosR23IuNzNLLqaKzfL' },
+      svm2:     { name: 'SVM.ows',            id: '1KZXhb0d8dcQRzc1JODpIDAzlgkBa-kgc' },
+      svm3:     { name: 'SVM1.ows',           id: '1472b_b7mT1ZOmVfYGgQ5zqCXdMG5OK46' },
+      tree2:    { name: '의사결정트리.ows',   id: '17Ihh7Llhl0dCB8HIjgFF7xR4QzLGtnMp' },
+      tree3:    { name: '의사결정트리1.ows',  id: '1pFoyU7QRk2wdhK1awrRIzra8z8v9E0w-' },
+    };
+    const FileLink = ({ file, note }) => (
+      <a href={driveUrl(file.id)} target="_blank" rel="noopener noreferrer"
+        className="inline-flex items-center gap-2 bg-white border-2 border-indigo-300 text-indigo-700 px-4 py-2 rounded-lg font-bold text-base hover:bg-indigo-50 transition-all shadow-sm">
+        <span>📥 {file.name}</span>{note && <span className="font-normal text-sm text-gray-500">{note}</span>}
+      </a>
+    );
+
+    const OrangeTab = () => {
+      const [group, setGroup] = useState(2);
+      const [step, setStep] = useState(1);
+      const cur = ORANGE_STEPS.find(s => s.id === step);
+      const trainKey = group === 2 ? 'train2' : 'train3';
+      const trainFile = FILES[trainKey].name;
+      const count = group === 2 ? 30 : 42;
+      const opt = group === 2 ? [['Induce binary tree', '체크'], ['Min. number of instances in leaves', '2'], ['Do not split subsets smaller than', '5'], ['Limit the maximal tree depth to', '10'], ['Stop when majority reaches [%]', '95']]
+                              : [['Induce binary tree', '체크'], ['Min. number of instances in leaves', '3'], ['Do not split subsets smaller than', '10'], ['Limit the maximal tree depth to', '12'], ['Stop when majority reaches [%]', '90']];
+
+      return (
+        <div className="slide-in space-y-5">
+          <Tip>Orange 프로그램에서 실제로 트리를 만들어 보는 순서예요. 단계 버튼을 눌러 화면 설명을 따라가 보세요. 그룹 수(2그룹/3그룹)에 따라 결과가 어떻게 달라지는지도 비교해 봐요.</Tip>
+
+          <div className="bg-white border-2 border-indigo-200 rounded-xl p-5">
+            <h3 className="text-lg font-bold text-indigo-900 mb-3">🗺️ 전체 흐름 (위젯 연결)</h3>
+            <div className="overflow-x-auto"><OrangeFlow /></div>
+            <div className="flex flex-wrap justify-center gap-2 mt-2 text-sm font-bold">
+              {Object.keys(TAB_COLOR).map(k => <span key={k} className={`px-3 py-1 rounded-full border ${TAB_COLOR[k]}`}>{k}</span>)}
+              <span className="px-3 py-1 rounded-full border border-gray-300 text-gray-500 bg-gray-50">점선 = 앞에서 배운 모델(비교용)</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
+            <span className="font-bold text-gray-700">분류할 그룹 수</span>
+            {[2, 3].map(g => (
+              <button key={g} onClick={() => setGroup(g)}
+                className={`px-4 py-2 rounded-lg font-bold text-base border-2 transition-all ${group === g ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white border-transparent shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-100'}`}>
+                {g === 2 ? '2그룹 (짜장 · 짬뽕)' : '3그룹 (짜장 · 짬뽕 · 쫄면)'}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {ORANGE_STEPS.map(s => (
+              <button key={s.id} onClick={() => setStep(s.id)}
+                className={`flex-shrink-0 px-4 py-2 rounded-lg font-bold text-base whitespace-nowrap border-2 transition-all ${step === s.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-600 border-gray-200 hover:bg-indigo-50'}`}>
+                {s.id}단계
+              </button>
+            ))}
+          </div>
+
+          <div className="bg-gradient-to-r from-indigo-50 to-violet-50 border-2 border-indigo-200 rounded-xl p-5 slide-in" key={step + '-' + group}>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className={`px-3 py-1 rounded-full border font-bold text-sm ${TAB_COLOR[cur.tab]}`}>{cur.tab}</span>
+              <h3 className="text-lg font-bold text-indigo-900">{cur.id}단계. {cur.title}</h3>
+            </div>
+
+            {step === 1 && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <StepBlock title="📂 File 위젯 사용법">
+                  <NumList items={[
+                    <span>폴더 버튼을 눌러 <b>{trainFile}</b> 파일을 골라요.</span>,
+                    <span>위쪽에 파일 이름이 잘 나오는지 확인해요.</span>,
+                    <span><b>Role(역할)</b>을 정해요. 매운 정도·물의 양은 <b>feature</b>(재료), 종류는 <b>target</b>(맞혀야 할 정답)!</span>,
+                    <span><b>Apply</b> 버튼을 눌러요.</span>,
+                    <span>아래쪽 숫자 <b>{count}</b>가 보이면 데이터 {count}개를 잘 불러온 거예요.</span>,
+                  ]} />
+                  <p className="text-base text-green-700 font-bold mt-3">✅ 결측치(빈칸), 이상치(엉뚱한 값) 없음</p>
+                  <div className="mt-3"><FileLink file={FILES[trainKey]} note={`(데이터 ${count}개)`} /></div>
+                </StepBlock>
+                <StepBlock title="📋 데이터 살펴보기 (앞부분)">
+                  <CsvTable head={['', '종류', '매운 정도', '물의 양']} rows={[[1, '짜장', '4.5', '1.2'], [2, '짜장', '1.5', '1.8'], [3, '짜장', '1.8', '1.3'], [4, '짜장', '2.1', '2.0'], [10, '짬뽕', '5.2', '5.5'], [11, '짬뽕', '5.8', '5.3']]} />
+                  <p className="text-base text-gray-600 mt-3">feature = 문제를 풀 때 쓰는 <b>재료</b>, target = 컴퓨터가 맞혀야 하는 <b>정답</b>이라고 기억하면 쉬워요.</p>
+                </StepBlock>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="grid md:grid-cols-2 gap-4 items-start">
+                <div>
+                  <ScatterPlot group={group} showTest={false} showLines={false} />
+                  <ScatterLegend group={group} showLines={false} />
+                </div>
+                <StepBlock title="📊 Scatter Plot 설정">
+                  <NumList items={[
+                    <span>Axis x(가로)는 <b>매운 정도</b>, Axis y(세로)는 <b>물의 양</b>으로 골라요.</span>,
+                    <span>Color(색)는 <b>종류</b>로 골라요.</span>,
+                  ]} />
+                  <p className="text-base text-gray-700 mt-3 leading-relaxed">👀 점들이 어느 위치에 모여 있는지 확인해요. {group === 2
+                    ? '짜장(파랑)은 왼쪽 아래, 짬뽕(빨강)은 위쪽에 모여 있죠?'
+                    : '짜장(파랑)은 왼쪽 아래, 짬뽕(빨강)은 위쪽, 쫄면(초록)은 오른쪽 아래에 모여 있어요.'}</p>
+                </StepBlock>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <StepBlock title={`⚙️ ${group}그룹으로 분류할 때 Tree 옵션`}>
+                  <table className="w-full text-base border-collapse">
+                    <tbody>
+                      {opt.map(([n, v]) => (
+                        <tr key={n}><td className="border border-gray-300 px-2 py-1 text-gray-700">{n}</td><td className="border border-gray-300 px-2 py-1 text-center font-bold text-indigo-700 w-20">{v}</td></tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </StepBlock>
+                <StepBlock title="🌳 Tree 위젯이 하는 일">
+                  <p className="text-base text-gray-700 leading-relaxed">데이터를 <b>질문으로 나누며 정답을 찾아가는</b> 위젯이에요. 앞 탭에서 배운 옵션 5개를 여기에서 정해요.</p>
+                  <p className="text-base text-gray-700 leading-relaxed mt-2">{group === 2
+                    ? '그룹이 2개이고 데이터가 30개로 적은 편이라 기본값에 가까운 옵션을 써요.'
+                    : '그룹이 3개이고 데이터가 42개로 늘었으니, 잎 최소 개수와 깊이를 조금 더 크게 잡았어요.'}</p>
+                </StepBlock>
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <StepBlock title="🌲 Tree Viewer가 보여 준 트리">
+                  <div className="overflow-x-auto"><div className="min-w-[380px] flex justify-center py-2"><MiniTree node={group === 2 ? TREE_2 : TREE_3} /></div></div>
+                  <p className="text-sm text-gray-500 mt-1">잎 안의 숫자: 그 칸에 모인 데이터 중 맞는 정답의 비율(맞은 개수/전체 개수)</p>
+                </StepBlock>
+                <StepBlock title="🔍 트리 읽어 보기">
+                  <p className="text-base text-gray-700 leading-relaxed">Tree Viewer 위젯은 만들어진 트리를 <b>그림으로</b> 보여 줘요. (5 nodes, 3 leaves = 노드 5개, 잎 3개)</p>
+                  <p className="text-base text-gray-700 leading-relaxed mt-2">컴퓨터는 <b>가장 잘 나누는 속성으로 "물의 양"</b>을 첫 질문으로 골랐어요.</p>
+                  <p className="text-base text-gray-700 leading-relaxed mt-2">{group === 2
+                    ? '물의 양이 적으면 모두 짜장! 많은 쪽에서는 매운 정도를 한 번 더 물어보고 짬뽕을 찾아요.'
+                    : '물의 양이 많으면 짬뽕! 적은 쪽에서는 매운 정도를 물어서 짜장과 쫄면을 나눠요.'}</p>
+                </StepBlock>
+              </div>
+            )}
+
+            {step === 5 && (
+              <div className="grid md:grid-cols-2 gap-4">
+                <StepBlock title="📝 엑셀에서 CSV 파일 만들기">
+                  <NumList items={[
+                    <span>엑셀에 테스트 데이터 4줄을 입력해요.</span>,
+                    <span>[다른 이름으로 저장]에서 저장할 위치를 골라요.</span>,
+                    <span>파일 이름을 <b>분류테스트</b>로 써요.</span>,
+                    <span>파일 형식은 반드시 <b>CSV UTF-8 (쉼표로 분리)(*.csv)</b>로 골라요.</span>,
+                  ]} />
+                  <p className="text-base text-orange-700 font-bold mt-3">💡 CSV UTF-8로 저장해야 한글이 깨지지 않고 유지돼요!</p>
+                </StepBlock>
+                <StepBlock title="📋 분류테스트.csv 내용">
+                  <CsvTable head={['매운 정도', '물의 양', '종류']} rows={TEST_ROWS.map(r => [r.x.toFixed(1), r.y.toFixed(1), r.truth])} />
+                  <p className="text-base text-gray-600 mt-3">이 4개는 훈련에 쓰지 않은 <b>새 데이터</b>예요. File 위젯을 하나 더 놓고 이 파일을 불러와 "테스트"라고 이름 붙여요. (Role은 훈련 때와 똑같이!)</p>
+                  <div className="mt-3"><FileLink file={FILES.test} note="(테스트 데이터 4개)" /></div>
+                </StepBlock>
+              </div>
+            )}
+
+            {step === 6 && (
+              <div className="space-y-4">
+                <StepBlock title="🔮 kNN · SVM · Tree가 예측한 결과">
+                  <PredictionsTable group={group} />
+                </StepBlock>
+                <StepBlock title="🧪 내가 직접 새 데이터를 넣어 볼까요?">
+                  <ProbeCalculator group={group} />
+                </StepBlock>
+              </div>
+            )}
+
+            <div className="flex justify-between mt-5">
+              <button onClick={() => setStep(Math.max(1, step - 1))} disabled={step === 1}
+                className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-600 font-bold text-base disabled:opacity-40">◀ 이전 단계</button>
+              <button onClick={() => setStep(Math.min(ORANGE_STEPS.length, step + 1))} disabled={step === ORANGE_STEPS.length}
+                className="px-4 py-2 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold text-base disabled:opacity-40">다음 단계 ▶</button>
+            </div>
+          </div>
+
+          <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
+            <p className="font-bold text-blue-900 mb-1">📎 실습 파일 내려받기</p>
+            <p className="text-base text-gray-600 mb-3">버튼을 누르면 구글 드라이브가 새 창으로 열려요. 화면 위쪽의 <b>다운로드(⬇)</b> 버튼을 눌러 저장한 뒤, Orange의 File 위젯에서 불러와요.</p>
+            <p className="text-sm font-bold text-blue-800 mb-2">데이터 파일 (CSV)</p>
+            <div className="flex flex-wrap gap-3 mb-4">
+              <FileLink file={FILES.train2} note="(2그룹 · 30개)" />
+              <FileLink file={FILES.train3} note="(3그룹 · 42개)" />
+              <FileLink file={FILES.test} note="(테스트 4개)" />
+            </div>
+            <p className="text-sm font-bold text-blue-800 mb-2">Orange 작업 파일 (.ows)</p>
+            <div className="flex flex-wrap gap-3">
+              <FileLink file={FILES.svm2} note="(2그룹)" />
+              <FileLink file={FILES.tree2} note="(2그룹)" />
+              <FileLink file={FILES.svm3} note="(3그룹)" />
+              <FileLink file={FILES.tree3} note="(3그룹)" />
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ═════════════ 탭6: 장점과 단점 ═════════════ */
+    const OverfitChart = () => {
+      const W = 520, H = 300, L = 50, B = 46, T = 20, R = 20;
+      const train = [70, 82, 90, 95, 98, 100, 100, 100];
+      const test = [68, 80, 86, 87, 84, 80, 76, 72];
+      const sx = (i) => L + (i / 7) * (W - L - R);
+      const sy = (v) => H - B - ((v - 60) / 45) * (H - B - T);
+      const pts = (arr) => arr.map((v, i) => `${sx(i)},${sy(v)}`).join(' ');
+      return (
+        <svg viewBox={`0 0 ${W} ${H}`} className="w-full max-w-lg mx-auto bg-white rounded-lg border border-gray-200">
+          {[60, 70, 80, 90, 100].map(v => (
+            <g key={v}>
+              <line x1={L} y1={sy(v)} x2={W - R} y2={sy(v)} stroke="#eef2ff" />
+              <text x={L - 8} y={sy(v) + 4} textAnchor="end" fontSize="12" fill="#4b5563">{v}%</text>
+            </g>
+          ))}
+          {train.map((_, i) => <text key={i} x={sx(i)} y={H - B + 18} textAnchor="middle" fontSize="12" fill="#4b5563">{i + 1}</text>)}
+          <line x1={L} y1={H - B} x2={W - R} y2={H - B} stroke="#374151" />
+          <text x={(L + W - R) / 2} y={H - 8} textAnchor="middle" fontSize="13" fontWeight="700" fill="#374151">트리의 깊이 (질문을 이어가는 단계)</text>
+          <rect x={sx(3) - 22} y={T} width="44" height={H - B - T} fill="#bbf7d0" opacity="0.5" />
+          <text x={sx(3)} y={T + 14} textAnchor="middle" fontSize="12" fontWeight="700" fill="#166534">알맞은 깊이</text>
+          <polyline points={pts(train)} fill="none" stroke="#2563eb" strokeWidth="3" />
+          <polyline points={pts(test)} fill="none" stroke="#dc2626" strokeWidth="3" />
+          {train.map((v, i) => <circle key={'t' + i} cx={sx(i)} cy={sy(v)} r="4" fill="#2563eb" />)}
+          {test.map((v, i) => <circle key={'s' + i} cx={sx(i)} cy={sy(v)} r="4" fill="#dc2626" />)}
+          <text x={sx(5) + 6} y={sy(100) - 8} fontSize="13" fontWeight="700" fill="#2563eb">지금 가진 데이터</text>
+          <text x={sx(4) + 24} y={sy(70)} fontSize="13" fontWeight="700" fill="#dc2626">새로운 데이터</text>
+        </svg>
+      );
+    };
+
+    const ProsConsTab = () => (
+      <div className="slide-in space-y-6">
+        <Tip>의사결정 트리가 왜 인기가 많은지, 그리고 조심할 점은 무엇인지 정리해 봐요.</Tip>
+
+        <div className="grid md:grid-cols-2 gap-5">
+          <div className="bg-green-50 border-2 border-green-300 rounded-xl p-5">
+            <h3 className="text-lg font-bold text-green-800 mb-3">👍 장점</h3>
+            <div className="space-y-3 text-base text-gray-700 leading-relaxed">
+              <div className="bg-white rounded-lg p-3 shadow-sm"><p className="font-bold text-green-700">이해하기 쉬워요</p><p>트리 그림만 보면 누구나 왜 그런 분류 결과가 나왔는지 바로 알 수 있어요.</p></div>
+              <div className="bg-white rounded-lg p-3 shadow-sm"><p className="font-bold text-green-700">복잡한 수식 계산이 없어요</p><p>복잡한 계산식 없이 조건을 비교하기만 해요.</p></div>
+              <div className="bg-white rounded-lg p-3 shadow-sm"><p className="font-bold text-green-700">규칙이 명확해요</p><p>선택 규칙이 'If-Then(만약 ~라면 ~이다)' 문장으로 분명하게 나와요.</p></div>
+            </div>
+          </div>
+          <div className="bg-red-50 border-2 border-red-300 rounded-xl p-5">
+            <h3 className="text-lg font-bold text-red-800 mb-3">⚠️ 단점</h3>
+            <div className="space-y-3 text-base text-gray-700 leading-relaxed">
+              <div className="bg-white rounded-lg p-3 shadow-sm"><p className="font-bold text-red-700">과대적합(Overfitting) 위험</p><p>질문을 너무 많이 만들어 트리가 지나치게 복잡해지면, 새로운 실제 데이터에서는 예측 성능이 떨어져요.</p></div>
+              <div className="bg-white rounded-lg p-3 shadow-sm"><p className="font-bold text-red-700">데이터 변화에 민감해요</p><p>데이터가 아주 조금만 바뀌어도 전체 트리 구조가 완전히 달라질 수 있어요.</p></div>
+              <div className="bg-white rounded-lg p-3 shadow-sm"><p className="font-bold text-blue-700">🛠️ 해결책</p><p>트리의 <b>깊이(Depth)를 제한</b>하고 <b>최소 데이터 개수</b> 옵션을 조절해서 과대적합을 막아요!</p></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white border-2 border-indigo-200 rounded-xl p-5">
+          <h3 className="text-lg font-bold text-indigo-900 mb-1">📉 과대적합, 그림으로 이해하기</h3>
+          <p className="text-base text-gray-600 mb-3">시험 문제를 통째로 외우면 외운 문제는 100점이지만, 새로운 문제는 잘 못 풀죠? 트리도 똑같아요. 질문을 너무 많이 만들면 지금 가진 데이터는 잘 맞히지만 새로운 데이터는 점점 틀려요.</p>
+          <OverfitChart />
+          <p className="text-sm text-gray-500 text-center mt-2">※ 이해를 돕기 위한 개념 그림이에요. 실제 측정값이 아니에요.</p>
+        </div>
+
+        <div className="bg-white border-2 border-purple-200 rounded-xl p-5">
+          <h3 className="text-lg font-bold text-purple-900 mb-1">🧾 트리는 If-Then 규칙으로 바꿀 수 있어요</h3>
+          <p className="text-base text-gray-600 mb-3">앞에서 본 트리를 문장으로 바꿔 쓰면 이렇게 돼요. 위에서부터 차례대로 확인하고, 처음으로 맞는 규칙을 따라요.</p>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-gray-900 text-green-300 rounded-lg p-4 text-base leading-loose">
+              <p className="text-gray-400 text-sm mb-1">생존 예측 트리</p>
+              <p>만약 성별이 여성이면 → <b>생존</b></p>
+              <p>아니라면, 나이가 9.5보다 많으면 → <b>사망</b></p>
+              <p>아니라면, 동반가족이 2.5보다 많으면 → <b>사망</b></p>
+              <p>그 외에는 → <b>생존</b></p>
+            </div>
+            <div className="bg-gray-900 text-green-300 rounded-lg p-4 text-base leading-loose">
+              <p className="text-gray-400 text-sm mb-1">짜장 · 짬뽕 · 쫄면 트리</p>
+              <p>만약 물의 양이 3.8보다 많으면 → <b>짬뽕</b></p>
+              <p>아니라면, 매운 정도가 5.5 이하이면 → <b>짜장</b></p>
+              <p>그 외에는 → <b>쫄면</b></p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+
+    /* ═════════════ 탭7: 퀴즈 ═════════════ */
+    const quizData = [
+      { id: 1, q: '스무고개처럼 질문을 던지며 답을 찾아가는 과정을 나무 모양으로 만든 것은 무엇일까요?',
+        opts: ['의사결정 트리', '산점도', '막대그래프', '엑셀 표'], ans: 0,
+        expl: '질문(조건)에 "예/아니오"로 답하며 결과에 도착하는 모양이 나무를 거꾸로 뒤집은 것 같아서 의사결정 트리라고 불러요.' },
+      { id: 2, q: '의사결정 트리에서 가장 먼저 질문을 던지는 시작 부분과, 마지막에 결과가 있는 끝 부분의 이름을 순서대로 고르세요.',
+        opts: ['잎 → 뿌리', '뿌리 → 잎', '가지 → 열매', '줄기 → 뿌리'], ans: 1,
+        expl: '시작은 뿌리, 끝은 잎이에요. 잎에는 더 이상 질문이 없고 결과(정답)가 들어 있어요.' },
+      { id: 3, q: 'Orange의 Tree 위젯에서 "Induce binary tree"에 체크하면 어떻게 될까요?',
+        opts: ['한 번에 두 그룹으로만 나뉘는 트리를 만든다', '한 번에 세 그룹 이상으로 나뉜다', '트리가 만들어지지 않는다', '데이터가 자동으로 지워진다'], ans: 0,
+        expl: '체크하면 질문이 항상 "예/아니오" 두 갈래로만 나뉘어서 트리가 깔끔해지고 계산도 단순해져요.' },
+      { id: 4, q: '트리가 너무 깊어져서 지금 가진 데이터만 외우고, 새로운 데이터는 잘 못 맞히는 문제를 무엇이라고 할까요?',
+        opts: ['결측치', '과대적합(Overfitting)', '이상치', '데이터 수집'], ans: 1,
+        expl: '시험 문제를 통째로 외운 것과 같아요. 트리의 깊이를 제한하거나 최소 데이터 개수를 늘려서 막을 수 있어요.' },
+      { id: 5, q: '트리가 너무 복잡하게 만들어졌어요. 다음 중 알맞은 해결 방법은 무엇일까요?',
+        opts: ['최대 깊이를 더 크게 늘린다', '최대 깊이를 줄인다', '데이터를 모두 지운다', '질문을 예/아니오 대신 여러 갈래로 만든다'], ans: 1,
+        expl: '깊이를 줄이면 질문을 이어가는 단계가 제한돼서 트리가 단순해져요.' },
+      { id: 6, q: '다음 중 의사결정 트리의 특징이 아닌 것은 무엇일까요?',
+        opts: ['트리 그림만 보면 결과가 나온 이유를 알 수 있다', '복잡한 수식 없이 조건 비교만 한다', '선택 규칙이 If-Then 문장으로 나온다', '데이터가 바뀌어도 트리 구조는 절대 변하지 않는다'], ans: 3,
+        expl: '의사결정 트리는 데이터가 조금만 바뀌어도 트리 구조가 크게 달라질 수 있어요. 그래서 데이터 변화에 민감하다는 단점이 있어요.' },
+      { id: 7, q: 'Orange의 File 위젯에서 "종류"(짜장, 짬뽕처럼 컴퓨터가 맞혀야 할 정답) 열의 Role은 무엇으로 정해야 할까요?',
+        opts: ['feature', 'target', 'skip', 'meta'], ans: 1,
+        expl: '맞혀야 할 정답은 target, 정답을 맞히는 데 쓰는 재료(매운 정도, 물의 양)는 feature예요.' },
+      { id: 8, q: '엑셀에서 한글이 들어 있는 데이터를 CSV로 저장할 때, 한글이 깨지지 않게 하는 파일 형식은 무엇일까요?',
+        opts: ['텍스트(탭으로 분리)', 'CSV UTF-8 (쉼표로 분리)', 'PDF', '웹 페이지'], ans: 1,
+        expl: 'CSV UTF-8 형식으로 저장하면 한글이 포함된 데이터가 손상되지 않고 그대로 유지돼요.' },
+    ];
+
+    const QuizTab = () => {
+      const [quizAnswers, setQuizAnswers] = useState({});
+      const [shakeId, setShakeId] = useState(null);
+      const handleQuiz = (qid, idx) => {
+        if (quizAnswers[qid] !== undefined) return;
+        const q = quizData.find(q => q.id === qid);
+        if (idx !== q.ans) { setShakeId(qid); setTimeout(() => setShakeId(null), 400); }
+        setQuizAnswers(prev => ({ ...prev, [qid]: idx }));
+      };
+      const calcScore = () => quizData.filter(q => quizAnswers[q.id] === q.ans).length;
+      const total = quizData.length;
+      const score = calcScore();
+      const ratio = score / total;
+      return (
+        <div className="slide-in space-y-5">
+          <div className="bg-gradient-to-r from-indigo-50 to-violet-50 p-4 rounded-lg border border-indigo-200 flex items-center justify-between gap-3">
+            <div>
+              <p className="font-bold text-indigo-900">🎯 오늘 배운 내용을 확인해 봐요!</p>
+              <p className="text-base text-gray-600">보기를 누르면 바로 정답을 알 수 있어요.</p>
+            </div>
+            {Object.keys(quizAnswers).length > 0 && (
+              <button onClick={() => setQuizAnswers({})}
+                className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white px-4 py-2 rounded-lg font-bold text-base whitespace-nowrap">🔄 다시 풀기</button>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            {quizData.map(q => (
+              <div key={q.id} className={`h-2 flex-1 rounded-full transition-all duration-500 ${
+                quizAnswers[q.id] !== undefined ? (quizAnswers[q.id] === q.ans ? 'bg-green-500' : 'bg-red-400') : 'bg-gray-200'}`} />
+            ))}
+          </div>
+
+          {quizData.map(q => {
+            const answered = quizAnswers[q.id] !== undefined;
+            return (
+              <div key={q.id} className={`bg-white border-2 border-gray-200 rounded-xl p-5 shadow-sm ${shakeId === q.id ? 'shake' : ''}`}>
+                <p className="text-base font-bold text-indigo-600 mb-2">Q{q.id} / {total}</p>
+                <p className="text-base font-bold text-gray-800 mb-4">{q.q}</p>
+                <div className="space-y-2 mb-3">
+                  {q.opts.map((opt, idx) => {
+                    let style = 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-indigo-50 hover:border-indigo-300';
+                    if (answered) {
+                      if (idx === q.ans) style = 'bg-green-50 border-green-400 text-green-800 font-bold';
+                      else if (idx === quizAnswers[q.id]) style = 'bg-red-50 border-red-400 text-red-700';
+                      else style = 'bg-gray-50 border-gray-200 text-gray-400';
+                    }
+                    return (
+                      <button key={idx} onClick={() => handleQuiz(q.id, idx)} disabled={answered}
+                        className={`w-full text-left px-4 py-3 rounded-lg border-2 text-base transition-all ${style} ${answered ? 'cursor-default' : 'cursor-pointer'}`}>
+                        <span className="font-bold mr-2">{['①', '②', '③', '④'][idx]}</span>{opt}
+                        {answered && idx === q.ans && <span className="ml-2">✅</span>}
+                        {answered && idx === quizAnswers[q.id] && idx !== q.ans && <span className="ml-2">❌</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+                {answered && (
+                  <div className={`p-3 rounded-lg text-base leading-relaxed ${quizAnswers[q.id] === q.ans ? 'bg-green-50 border border-green-300 text-green-800' : 'bg-orange-50 border border-orange-300 text-orange-800'}`}>
+                    {quizAnswers[q.id] === q.ans ? '🎉 정답이에요! ' : '💡 정답 설명: '}{q.expl}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {Object.keys(quizAnswers).length === total && (
+            <div className="slide-in bg-gradient-to-r from-indigo-50 to-violet-50 p-6 rounded-xl border-2 border-indigo-300 text-center">
+              <div className="text-5xl mb-3">{ratio === 1 ? '🏆' : ratio >= 0.75 ? '🌟' : ratio >= 0.4 ? '👍' : '📚'}</div>
+              <p className="text-2xl font-bold text-indigo-800 mb-2">{score} / {total} 점</p>
+              <p className="text-base text-gray-600">
+                {ratio === 1 ? '완벽해요! 의사결정 트리 마스터예요! 🏆'
+                  : ratio >= 0.75 ? '잘했어요! 거의 다 맞혔네요 👍'
+                  : ratio >= 0.4 ? '조금만 더 복습해 봐요! 💪'
+                  : '다시 한번 처음부터 배워 봐요! 📖'}
+              </p>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    /* ═════════════ 전체 화면 ═════════════ */
+    const App = () => {
+      const [activeTab, setActiveTab] = useState('intro');
+      const [showGoal, setShowGoal] = useState(true);
+
+      const tabs = [
+        { id: 'intro',    label: '🎮 스무고개와 트리' },
+        { id: 'example',  label: '🔮 트리로 예측하기' },
+        { id: 'lab',      label: '🌳 트리 만들기 체험' },
+        { id: 'options',  label: '⚙️ 옵션 5가지' },
+        { id: 'orange',   label: '🧪 Orange 실습' },
+        { id: 'proscons', label: '⚖️ 장점과 단점' },
+        { id: 'quiz',     label: '🎯 퀴즈' },
+      ];
+
+      return (
+        <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+          {/* 헤더 */}
+          <div className="bg-gradient-to-r from-indigo-700 to-violet-700 p-6 text-white">
+            <div className="flex justify-between items-center mb-2">
+              <div className="text-base text-indigo-100 mb-2">고등학교 인공지능기초 학습자료</div>
+              <a href="index.html"
+                className="bg-white text-indigo-600 px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2">
+                🏠 홈으로
+              </a>
+            </div>
+            <h1 className="text-3xl font-bold mb-2">🌳 의사결정 트리 - 질문으로 정답을 찾아가는 AI</h1>
+            <p className="text-indigo-100">스무고개처럼 질문을 던지며 데이터를 분류하는 방법을 직접 체험해 봐요!</p>
+            <button onClick={() => setShowGoal(!showGoal)}
+              className="w-full bg-white/10 hover:bg-white/15 rounded-lg p-4 mt-4 transition-colors text-left">
+              <div className="flex items-center justify-between">
+                <p className="font-bold">🎯 오늘 우리가 할 수 있게 될 것</p>
+                <span className={`text-xl transition-transform duration-300 ${showGoal ? 'rotate-180' : ''}`}>⌄</span>
+              </div>
+              {showGoal && (
+                <div className="slide-in mt-2 space-y-1">
+                  <p className="text-indigo-50 text-base">🎮 스무고개처럼 질문으로 답을 찾아가는 과정이 의사결정 트리라는 것을 설명할 수 있어요.</p>
+                  <p className="text-indigo-50 text-base">🌳 트리의 뿌리·노드·잎이 무엇인지 알고, 옵션이 트리 모양에 주는 영향을 설명할 수 있어요.</p>
+                  <p className="text-indigo-50 text-base">🧪 Orange로 트리를 만들고, 새로운 데이터를 예측해 볼 수 있어요.</p>
+                </div>
+              )}
+            </button>
+          </div>
+
+          {/* 탭 */}
+          <div className="flex gap-2 p-4 bg-gray-50 border-b border-gray-200 overflow-x-auto">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`px-5 py-2 rounded-lg font-bold text-base transition-all whitespace-nowrap ${
+                  activeTab === t.id
+                    ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-6">
+            {activeTab === 'intro'    && <IntroTab />}
+            {activeTab === 'example'  && <ExampleTab />}
+            {activeTab === 'lab'      && <LabTab />}
+            {activeTab === 'options'  && <OptionsTab />}
+            {activeTab === 'orange'   && <OrangeTab />}
+            {activeTab === 'proscons' && <ProsConsTab />}
+            {activeTab === 'quiz'     && <QuizTab />}
+          </div>
+
+          <div className="p-6 text-center border-t border-gray-100">
+            <a href="index.html"
+              className="inline-block bg-gradient-to-r from-indigo-700 to-violet-700 text-white w-64 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-all shadow-lg hover:shadow-xl">
+              🏠 홈으로 돌아가기
+            </a>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
   </script>
 </body>
 </html>
