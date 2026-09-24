@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>K-평균 알고리즘 - 비슷한 것끼리 모으기</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', sans-serif;
+      background: linear-gradient(135deg, #0f766e 0%, #064e3b 100%);
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in { animation: slideIn 0.4s ease-out; }
+    @keyframes shake {
+      0%,100% { transform: translateX(0); }
+      20%,60% { transform: translateX(-5px); }
+      40%,80% { transform: translateX(5px); }
+    }
+    .shake { animation: shake 0.4s ease; }
+    @keyframes popIn {
+      0%   { transform: scale(0.5); opacity: 0; }
+      70%  { transform: scale(1.1); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pop-in { animation: popIn 0.35s ease-out; transform-origin: center; transform-box: fill-box; }
+    .ball {
+      position: absolute;
+      width: clamp(14px, 2.8vw, 28px);
+      aspect-ratio: 1 / 1;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      box-shadow: 0 3px 6px rgba(0,0,0,0.35);
+      transition: left 0.9s cubic-bezier(.34,1.25,.5,1), top 0.9s cubic-bezier(.34,1.25,.5,1);
+    }
+    .popup {
+      position: fixed;
+      background-color: #134e4a;
+      color: white;
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-size: 1em;
+      font-weight: bold;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      z-index: 1000;
+      pointer-events: none;
+    }
+    canvas { image-rendering: auto; }
+    button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible {
+      outline: 3px solid #f59e0b; outline-offset: 2px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .ball { transition: none; }
+      .slide-in, .pop-in, .shake { animation: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+
+    /* ───────────────── 공통 상수 ───────────────── */
+    // '참새' 를 유니코드 이스케이프 문자로 표기
+    const SPARROW = '\uCC38\uC0C8';
+
+    const CLUSTER_COLORS = [
+      { fill: '#ef4444', stroke: '#991b1b', name: '빨강' },
+      { fill: '#3b82f6', stroke: '#1e40af', name: '파랑' },
+      { fill: '#eab308', stroke: '#a16207', name: '노랑' },
+      { fill: '#8b5cf6', stroke: '#5b21b6', name: '보라' },
+      { fill: '#22c55e', stroke: '#15803d', name: '초록' },
+    ];
+
+    /* 같은 모양이 매번 나오도록 하는 난수 생성기 */
+    const mulberry32 = (a) => () => {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    const gaussian = (rnd) => {
+      const u = Math.max(rnd(), 1e-9), v = rnd();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    };
+
+    /* ───────────────── K-평균 핵심 함수 ───────────────── */
+    const sqDist = (a, b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
+    const nearest = (p, cents, d = sqDist) => {
+      let best = 0, bd = Infinity;
+      cents.forEach((c, i) => { const v = d(p, c); if (v < bd) { bd = v; best = i; } });
+      return best;
+    };
+    const meanPoint = (arr) => ({
+      x: arr.reduce((s, p) => s + p.x, 0) / arr.length,
+      y: arr.reduce((s, p) => s + p.y, 0) / arr.length,
+    });
+    const updateCents = (pts, labels, cents) => cents.map((c, i) => {
+      const members = pts.filter((_, j) => labels[j] === i);
+      return members.length ? meanPoint(members) : { x: c.x, y: c.y };
+    });
+    const runKMeans = (pts, init, d = sqDist, maxIter = 300) => {
+      let cents = init.map(c => ({ x: c.x, y: c.y }));
+      let labels = [];
+      let iters = 0;
+      for (; iters < maxIter; iters++) {
+        labels = pts.map(p => nearest(p, cents, d));
+        const nc = updateCents(pts, labels, cents);
+        const moved = Math.max(...nc.map((c, i) => Math.hypot(c.x - cents[i].x, c.y - cents[i].y)));
+        cents = nc;
+        if (moved < 1e-6) break;
+      }
+      labels = pts.map(p => nearest(p, cents, d));
+      const inertia = pts.reduce((s, p, j) => s + d(p, cents[labels[j]]), 0);
+      return { cents, labels, inertia, iters };
+    };
+    const farthestInit = (pts, k) => {
+      const c = [pts[0]];
+      while (c.length < k) {
+        let bi = 0, bd = -1;
+        pts.forEach((p, i) => {
+          const m = Math.min(...c.map(q => sqDist(p, q)));
+          if (m > bd) { bd = m; bi = i; }
+        });
+        c.push(pts[bi]);
+      }
+      return c.map(p => ({ x: p.x, y: p.y }));
+    };
+    const starPoints = (cx, cy, R = 13, r = 5.5) => {
+      const out = [];
+      for (let i = 0; i < 10; i++) {
+        const rad = i % 2 === 0 ? R : r;
+        const a = (i * Math.PI) / 5 - Math.PI / 2;
+        out.push(`${(cx + rad * Math.cos(a)).toFixed(1)},${(cy + rad * Math.sin(a)).toFixed(1)}`);
+      }
+      return out.join(' ');
+    };
+    const fmt = (n) => String(Math.round(n * 100) / 100);
+
+    /* 세 덩어리로 뭉친 예시 데이터 (0~8 좌표) */
+    const makeBlobData = (seed, per = 8, spread = 0.75) => {
+      const rnd = mulberry32(seed);
+      const centers = [{ x: 2, y: 2 }, { x: 6, y: 2.4 }, { x: 4, y: 5.8 }];
+      const pts = [];
+      centers.forEach(c => {
+        for (let i = 0; i < per; i++) {
+          pts.push({
+            x: Math.min(7.7, Math.max(0.3, c.x + gaussian(rnd) * spread)),
+            y: Math.min(7.2, Math.max(0.3, c.y + gaussian(rnd) * spread)),
+          });
+        }
+      });
+      return pts;
+    };
+
+    /* ───────────────── 탭1: 섞인 공 정리하기 ───────────────── */
+    const BallSort = () => {
+      const [sorted, setSorted] = useState(false);
+      const balls = useMemo(() => {
+        const rnd = mulberry32(7);
+        const cols = [
+          { c: '#ef4444', d: '#7f1d1d' },
+          { c: '#3b82f6', d: '#1e3a8a' },
+          { c: '#facc15', d: '#a16207' },
+        ];
+        const centers = [{ x: 22, y: 64 }, { x: 50, y: 34 }, { x: 78, y: 64 }];
+        const ring = [[0, 0]];
+        for (let i = 0; i < 5; i++) { const a = (i * 2 * Math.PI) / 5; ring.push([Math.cos(a) * 4.2, Math.sin(a) * 4.2 * 2.4]); }
+        for (let i = 0; i < 6; i++) { const a = (i * 2 * Math.PI) / 6 + 0.4; ring.push([Math.cos(a) * 8, Math.sin(a) * 8 * 2.4]); }
+        const list = [];
+        cols.forEach((col, g) => {
+          for (let k = 0; k < 12; k++) {
+            list.push({
+              id: `${g}-${k}`, col, k,
+              mixed: { x: 5 + rnd() * 90, y: 12 + rnd() * 78 },
+              grouped: { x: centers[g].x + ring[k][0], y: centers[g].y + ring[k][1] },
+            });
+          }
+        });
+        return list;
+      }, []);
+
+      return (
+        <div>
+          <div className="relative w-full rounded-xl overflow-hidden transition-colors duration-700"
+               style={{ aspectRatio: '2.4 / 1', background: sorted ? '#064e3b' : '#3b1f24' }}>
+            <span className="absolute top-2 left-3 text-white/80 text-sm font-bold z-10">
+              {sorted ? 'After: 비슷한 색끼리 모였어요' : 'Before: 공이 뒤섞여 있어요'}
+            </span>
+            {balls.map(b => {
+              const pos = sorted ? b.grouped : b.mixed;
+              return (
+                <div key={b.id} className="ball"
+                  style={{
+                    left: `${pos.x}%`, top: `${pos.y}%`,
+                    transitionDelay: `${b.k * 30}ms`,
+                    background: `radial-gradient(circle at 35% 30%, rgba(255,255,255,0.85) 0 8%, ${b.col.c} 42%, ${b.col.d} 100%)`,
+                  }} />
+              );
+            })}
+          </div>
+          <div className="text-center mt-4">
+            <button onClick={() => setSorted(!sorted)}
+              className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-bold text-lg shadow-md hover:opacity-90">
+              {sorted ? '🔀 다시 섞기' : '🧺 비슷한 색끼리 모아 보기'}
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    /* ───────────────── 탭2: K 고르기 체험 ───────────────── */
+    const KChooser = () => {
+      const [k, setK] = useState(3);
+      const pts = useMemo(() => makeBlobData(11), []);
+      const res = useMemo(() => runKMeans(pts, farthestInit(pts, k)), [pts, k]);
+      const X = (x) => 20 + x * 40, Y = (y) => 290 - y * 38;
+      return (
+        <div>
+          <div className="flex gap-2 justify-center mb-3">
+            {[2, 3, 4, 5].map(v => (
+              <button key={v} onClick={() => setK(v)}
+                className={`px-4 py-2 rounded-lg font-bold text-base border-2 ${k === v ? 'bg-teal-600 text-white border-teal-600' : 'bg-white text-teal-700 border-teal-200 hover:bg-teal-50'}`}>
+                K = {v}
+              </button>
+            ))}
+          </div>
+          <svg viewBox="0 0 360 300" className="w-full max-w-md mx-auto block bg-white rounded-lg border border-gray-200">
+            {pts.map((p, i) => {
+              const c = CLUSTER_COLORS[res.labels[i]];
+              return <circle key={i} cx={X(p.x)} cy={Y(p.y)} r="7" fill={c.fill} stroke={c.stroke} strokeWidth="1.5" style={{ transition: 'fill 0.4s' }} />;
+            })}
+            {res.cents.map((c, i) => (
+              <polygon key={`${k}-${i}`} className="pop-in" points={starPoints(X(c.x), Y(c.y))}
+                fill={CLUSTER_COLORS[i].fill} stroke="#111827" strokeWidth="2.5" strokeLinejoin="round" />
+            ))}
+          </svg>
+          <p className="text-center text-base text-gray-700 mt-3">
+            K = <span className="font-bold text-teal-700">{k}</span> 이면 같은 데이터를 <span className="font-bold text-teal-700">{k}개 그룹</span>으로 나눠요.
+          </p>
+        </div>
+      );
+    };
+
+    /* ───────────────── 탭2: 평균 위치 계산 ───────────────── */
+    const MeanCalc = () => {
+      const [show, setShow] = useState(false);
+      const pts = [{ x: 2, y: 4, n: 'P1' }, { x: 4, y: 6, n: 'P2' }, { x: 6, y: 2, n: 'P3' }];
+      const X = (x) => 30 + x * 38, Y = (y) => 290 - y * 34;
+      return (
+        <div>
+          <svg viewBox="0 0 360 310" className="w-full max-w-md mx-auto block bg-white rounded-lg border border-gray-200">
+            {[0,1,2,3,4,5,6,7,8].map(i => (
+              <g key={i}>
+                <line x1={X(i)} y1={Y(0)} x2={X(i)} y2={Y(8)} stroke="#e2e8f0" />
+                <line x1={X(0)} y1={Y(i)} x2={X(8)} y2={Y(i)} stroke="#e2e8f0" />
+                <text x={X(i)} y={Y(0) + 15} fontSize="10" textAnchor="middle" fill="#64748b">{i}</text>
+                <text x={X(0) - 10} y={Y(i) + 4} fontSize="10" textAnchor="middle" fill="#64748b">{i}</text>
+              </g>
+            ))}
+            {show && pts.map(p => (
+              <line key={`l${p.n}`} x1={X(p.x)} y1={Y(p.y)} x2={X(4)} y2={Y(4)} stroke="#0d9488" strokeDasharray="4 4" strokeWidth="1.5" />
+            ))}
+            {pts.map(p => (
+              <g key={p.n}>
+                <circle cx={X(p.x)} cy={Y(p.y)} r="9" fill="#3b82f6" stroke="#1e40af" strokeWidth="2" />
+                <text x={X(p.x) + 12} y={Y(p.y) - 10} fontSize="12" fontWeight="bold" fill="#1e3a8a">{p.n}({p.x},{p.y})</text>
+              </g>
+            ))}
+            {show && (
+              <polygon className="pop-in" points={starPoints(X(4), Y(4), 15, 6.5)} fill="#fbbf24" stroke="#111827" strokeWidth="2.5" strokeLinejoin="round" />
+            )}
+          </svg>
+          <div className="text-center mt-3">
+            <button onClick={() => setShow(!show)}
+              className="bg-teal-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-teal-700">
+              {show ? '다시 숨기기' : '⭐ 평균 위치 계산하기'}
+            </button>
+          </div>
+          {show && (
+            <div className="slide-in bg-teal-50 border-l-4 border-teal-500 rounded-lg p-4 mt-3 text-base text-gray-700 space-y-1">
+              <p>x 평균 = (2 + 4 + 6) ÷ 3 = <span className="font-bold text-teal-700">4</span></p>
+              <p>y 평균 = (4 + 6 + 2) ÷ 3 = <span className="font-bold text-teal-700">4</span></p>
+              <p>그래서 이 그룹의 중심(평균 위치)은 <span className="font-bold text-teal-700">(4, 4)</span>이에요!</p>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    /* ───────────────── 탭3: 4단계 원리 애니메이션 (PPT의 K=2 예시) ───────────────── */
+    const SD_COLORS = [
+      { fill: '#2563eb', stroke: '#1e3a8a', name: '파랑', emoji: '🔵' },
+      { fill: '#dc2626', stroke: '#7f1d1d', name: '빨강', emoji: '🔴' },
+    ];
+    const SD_POINTS = [
+      { n: 'A', x: 1.2, y: 3.2 }, { n: 'B', x: 2, y: 2.4 }, { n: 'C', x: 2, y: 1.6 },
+      { n: 'D', x: 5, y: 5.2 },   { n: 'E', x: 6, y: 5.2 }, { n: 'F', x: 6, y: 3.6 },
+    ];
+
+    const buildScenes = () => {
+      const init = [{ x: 6, y: 5.2 }, { x: 6, y: 3.6 }]; // E 자리(파랑), F 자리(빨강)
+      const scenes = [
+        { type: 'input', title: '입력 자료' },
+        { type: 'define', title: '중심점 정의 (임의로)', cents: init },
+      ];
+      let cents = init, prevLabels = null;
+      for (let it = 1; it <= 10; it++) {
+        const labels = SD_POINTS.map(p => nearest(p, cents));
+        const changed = prevLabels ? SD_POINTS.filter((_, i) => labels[i] !== prevLabels[i]).map(p => p.n) : [];
+        scenes.push({ type: 'assign', title: '군집 할당', labels, cents, iter: it, changed, first: !prevLabels });
+        if (prevLabels && changed.length === 0) {
+          scenes.push({ type: 'final', title: '중심점 확정', labels, cents });
+          break;
+        }
+        const nc = updateCents(SD_POINTS, labels, cents);
+        scenes.push({ type: 'move', title: '중심점 이동', labels, cents: nc, prev: cents, iter: it });
+        cents = nc; prevLabels = labels;
+      }
+      return scenes;
+    };
+
+    const StepDemo = () => {
+      const scenes = useMemo(buildScenes, []);
+      const [idx, setIdx] = useState(0);
+      const s = scenes[idx];
+      const X = (x) => 40 + x * 42, Y = (y) => 265 - y * 40;
+      const activeStep = { input: 0, define: 1, assign: 2, move: 3, final: 4 }[s.type];
+      const repeating = (s.type === 'assign' && s.iter > 1) || (s.type === 'move' && s.iter > 1) || s.type === 'final';
+
+      const shape = (p, i) => {
+        const cx = X(p.x), cy = Y(p.y);
+        if (!s.labels) return <circle key={p.n} cx={cx} cy={cy} r="13" fill="#a855f7" stroke="#6b21a8" strokeWidth="2" />;
+        const c = SD_COLORS[s.labels[i]];
+        return s.labels[i] === 0
+          ? <circle key={p.n} cx={cx} cy={cy} r="13" fill={c.fill} stroke={c.stroke} strokeWidth="2" />
+          : <rect key={p.n} x={cx - 12} y={cy - 12} width="24" height="24" fill={c.fill} stroke={c.stroke} strokeWidth="2" />;
+      };
+
+      const describe = () => {
+        if (s.type === 'input') return (
+          <p>좌표 평면에 데이터 6개(A~F)가 있어요. 아직 아무도 어느 그룹인지 몰라요. <span className="font-bold">정답(레이블)이 없어요!</span></p>
+        );
+        if (s.type === 'define') return (
+          <p>K = 2 이니까 중심점 2개를 <span className="font-bold text-teal-700">아무 데나</span> 찍어요. 여기서는 E와 F 자리에 찍었어요. 처음 위치는 엉터리여도 괜찮아요. 컴퓨터가 점점 좋은 자리로 옮길 거예요.</p>
+        );
+        if (s.type === 'assign') {
+          const groups = SD_COLORS.map((c, ci) => `${c.emoji} ${SD_POINTS.filter((_, i) => s.labels[i] === ci).map(p => p.n).join(', ')}`);
+          return (
+            <div className="space-y-1">
+              <p>모든 점이 <span className="font-bold text-teal-700">두 중심점 중 더 가까운 쪽</span>을 골라 그 그룹에 들어가요. (점선 = 내가 고른 중심점)</p>
+              <p className="font-bold">{groups.join('   /   ')}</p>
+              {!s.first && s.changed.length > 0 && <p className="text-amber-700 font-bold">👀 {s.changed.join(', ')}은(는) 중심점이 움직인 덕분에 그룹을 옮겼어요!</p>}
+              {!s.first && s.changed.length === 0 && <p className="text-emerald-700 font-bold">👀 이번에는 그룹을 옮긴 점이 하나도 없어요!</p>}
+            </div>
+          );
+        }
+        if (s.type === 'move') return (
+          <div className="space-y-1">
+            <p>각 그룹에 속한 점들의 <span className="font-bold text-teal-700">평균 위치</span>로 중심점을 옮겨요. (화살표 = 이동 방향)</p>
+            {SD_COLORS.map((c, ci) => {
+              const m = SD_POINTS.filter((_, i) => s.labels[i] === ci);
+              return (
+                <p key={ci} className="text-sm md:text-base font-mono bg-white/70 rounded px-2 py-1">
+                  {c.emoji} ({m.map(p => p.n).join(', ')}) → x = ({m.map(p => fmt(p.x)).join(' + ')}) ÷ {m.length} = <b>{fmt(s.cents[ci].x)}</b>,
+                  {' '}y = ({m.map(p => fmt(p.y)).join(' + ')}) ÷ {m.length} = <b>{fmt(s.cents[ci].y)}</b>
+                </p>
+              );
+            })}
+          </div>
+        );
+        return (
+          <p>그룹이 더 이상 바뀌지 않으니 중심점도 더 이상 움직이지 않아요. <span className="font-bold text-emerald-700">🎉 군집화 완성!</span> 왼쪽 아래 세 점과 오른쪽 위 세 점이 깔끔하게 나뉘었어요.</p>
+        );
+      };
+
+      return (
+        <div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+            {['중심점 찍기', '그룹 만들기', '중심점 이동', '반복하기'].map((t, i) => {
+              const on = activeStep === i + 1 || (i === 3 && repeating);
+              return (
+                <div key={t} className={`rounded-lg px-3 py-2 text-center font-bold border-2 transition-all ${on ? 'bg-teal-600 text-white border-teal-600 shadow-md' : 'bg-white text-gray-500 border-gray-200'}`}>
+                  {i + 1}. {t}
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-5 items-start">
+            <div className="bg-white rounded-xl border-2 border-gray-200 p-2">
+              <svg viewBox="0 0 400 290" className="w-full block">
+                <defs>
+                  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                    <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e" />
+                  </marker>
+                </defs>
+                <line x1="30" y1="10" x2="30" y2="272" stroke="#111827" strokeWidth="3" />
+                <line x1="30" y1="272" x2="395" y2="272" stroke="#111827" strokeWidth="3" />
+                {s.type === 'assign' && SD_POINTS.map((p, i) => {
+                  const c = s.cents[s.labels[i]];
+                  return <line key={`ln${p.n}`} x1={X(p.x)} y1={Y(p.y)} x2={X(c.x)} y2={Y(c.y)} stroke={SD_COLORS[s.labels[i]].fill} strokeDasharray="5 4" strokeWidth="2" opacity="0.7" />;
+                })}
+                {SD_POINTS.map(shape)}
+                {SD_POINTS.map(p => (
+                  <text key={`t${p.n}`} x={X(p.x) - 20} y={Y(p.y) - 14} fontSize="13" fontWeight="bold" fill="#374151">{p.n}</text>
+                ))}
+                {s.type === 'move' && s.prev.map((c, i) => (
+                  <g key={`pv${i}`}>
+                    <circle cx={X(c.x)} cy={Y(c.y)} r="6" fill="none" stroke="#6b7280" strokeDasharray="2 2" strokeWidth="1.5" />
+                    <line x1={X(c.x)} y1={Y(c.y)} x2={X(s.cents[i].x)} y2={Y(s.cents[i].y)} stroke="#0f766e" strokeWidth="2.5" markerEnd="url(#arrow)" />
+                  </g>
+                ))}
+                {s.cents && s.cents.map((c, i) => (
+                  <g key={`c${idx}-${i}`} className="pop-in">
+                    <circle cx={X(c.x)} cy={Y(c.y)} r="21" fill="none" stroke={s.type === 'define' ? '#111827' : 'transparent'} strokeWidth="1.5" />
+                    <circle cx={X(c.x)} cy={Y(c.y)} r="6" fill="#111827" stroke="white" strokeWidth="2" />
+                  </g>
+                ))}
+              </svg>
+              <p className="text-center font-bold text-gray-800 text-lg pb-2">{s.title}{(s.type === 'assign' || s.type === 'move') ? ` (${s.iter}번째)` : ''}</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-teal-50 border-2 border-teal-200 rounded-xl p-5 text-base text-gray-700 leading-relaxed min-h-[150px]">
+                <p className="text-sm font-bold text-teal-700 mb-2">장면 {idx + 1} / {scenes.length}</p>
+                {describe()}
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => setIdx(Math.max(0, idx - 1))} disabled={idx === 0}
+                  className="flex-1 bg-white border-2 border-teal-300 text-teal-700 py-3 rounded-lg font-bold hover:bg-teal-50 disabled:opacity-40">◀ 이전</button>
+                <button onClick={() => setIdx(Math.min(scenes.length - 1, idx + 1))} disabled={idx === scenes.length - 1}
+                  className="flex-1 bg-teal-600 text-white py-3 rounded-lg font-bold hover:bg-teal-700 disabled:opacity-40">다음 ▶</button>
+                <button onClick={() => setIdx(0)}
+                  className="bg-gray-100 text-gray-600 px-4 py-3 rounded-lg font-bold hover:bg-gray-200">↺ 처음</button>
+              </div>
+              <div className="flex gap-1 justify-center">
+                {scenes.map((_, i) => (
+                  <button key={i} onClick={() => setIdx(i)} aria-label={`장면 ${i + 1}`}
+                    className={`h-2.5 rounded-full transition-all ${i === idx ? 'w-8 bg-teal-600' : 'w-2.5 bg-gray-300'}`} />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ───────────────── 탭4: K-평균 시뮬레이터 ───────────────── */
+    const KMeansSimulator = () => {
+      const canvasRef = useRef(null);
+      const WIDTH = 600, HEIGHT = 500, PADDING = 40;
+      const clampX = (v) => Math.min(WIDTH - PADDING, Math.max(PADDING, v));
+      const clampY = (v) => Math.min(HEIGHT - PADDING, Math.max(PADDING, v));
+
+      const genUniform = () => {
+        const a = [];
+        for (let i = 0; i < 25; i++) {
+          a.push({ x: PADDING + Math.random() * (WIDTH - 2 * PADDING), y: PADDING + Math.random() * (HEIGHT - 2 * PADDING), label: null });
+        }
+        return a;
+      };
+      const genBlobs = () => {
+        const k = 3 + Math.floor(Math.random() * 2);
+        const a = [];
+        for (let g = 0; g < k; g++) {
+          const c = { x: PADDING + 70 + Math.random() * (WIDTH - 2 * PADDING - 140), y: PADDING + 70 + Math.random() * (HEIGHT - 2 * PADDING - 140) };
+          for (let i = 0; i < 8; i++) {
+            const r = Math.random() * 55, t = Math.random() * 2 * Math.PI;
+            a.push({ x: clampX(c.x + r * Math.cos(t)), y: clampY(c.y + r * Math.sin(t)), label: null });
+          }
+        }
+        return a;
+      };
+
+      const [points, setPoints] = useState(() => genUniform());
+      const [centroids, setCentroids] = useState([]);
+      const [isRunning, setIsRunning] = useState(false);
+      const [iteration, setIteration] = useState(0);
+      const [converged, setConverged] = useState(false);
+      const [stoppedByMax, setStoppedByMax] = useState(false);
+      const [phase, setPhase] = useState('ASSIGN');
+      const [numClusters, setNumClusters] = useState(3);
+      const [normalize, setNormalize] = useState(true);
+      const [initMethod, setInitMethod] = useState('kmeans++');
+      const [maxIterations, setMaxIterations] = useState(300);
+      const [reruns, setReruns] = useState(10);
+      const [manualCentroids, setManualCentroids] = useState([]);
+      const [isSelecting, setIsSelecting] = useState(false);
+      const [lastAction, setLastAction] = useState('');
+      const [rerunInfo, setRerunInfo] = useState('');
+      const [showPopup, setShowPopup] = useState(false);
+      const [popupPos, setPopupPos] = useState({ x: 0, y: 0 });
+
+      const methodName = initMethod === 'kmeans++' ? 'KMeans++' : initMethod === 'random' ? 'Random' : '수동 선택';
+
+      /* 정규화: 가로·세로 범위를 0~1 로 맞춘 뒤 거리 계산 */
+      const bounds = useMemo(() => {
+        if (!points.length) return { w: 1, h: 1 };
+        const xs = points.map(p => p.x), ys = points.map(p => p.y);
+        return { w: (Math.max(...xs) - Math.min(...xs)) || 1, h: (Math.max(...ys) - Math.min(...ys)) || 1 };
+      }, [points]);
+      const d = useCallback((p, q) => {
+        if (!normalize) return sqDist(p, q);
+        const dx = (p.x - q.x) / bounds.w, dy = (p.y - q.y) / bounds.h;
+        return dx * dx + dy * dy;
+      }, [normalize, bounds]);
+
+      const clearResult = () => {
+        setCentroids([]); setIteration(0); setConverged(false); setStoppedByMax(false);
+        setPhase('ASSIGN'); setLastAction(''); setRerunInfo('');
+        setPoints(prev => prev.map(p => ({ ...p, label: null })));
+      };
+
+      const pickInit = (pts, k, method) => {
+        if (method === 'random') {
+          const idx = new Set();
+          while (idx.size < k) idx.add(Math.floor(Math.random() * pts.length));
+          return [...idx].map(i => ({ x: pts[i].x, y: pts[i].y }));
+        }
+        const c = [pts[Math.floor(Math.random() * pts.length)]];
+        while (c.length < k) {
+          const ws = pts.map(p => Math.min(...c.map(q => d(p, q))));
+          const sum = ws.reduce((a, b) => a + b, 0);
+          let chosen = pts[Math.floor(Math.random() * pts.length)];
+          if (sum > 0) {
+            let r = Math.random() * sum;
+            for (let i = 0; i < ws.length; i++) { r -= ws[i]; if (r <= 0) { chosen = pts[i]; break; } }
+          }
+          c.push(chosen);
+        }
+        return c.map(p => ({ x: p.x, y: p.y }));
+      };
+
+      const chooseStart = () => {
+        if (initMethod === 'manual') {
+          setRerunInfo('직접 찍은 중심점에서 출발해요. 출발점에 따라 결과가 어떻게 달라지는지 비교해 보세요!');
+          return manualCentroids.map(c => ({ x: c.x, y: c.y }));
+        }
+        let best = null;
+        const scores = [];
+        for (let r = 0; r < reruns; r++) {
+          const init = pickInit(points, numClusters, initMethod);
+          const res = runKMeans(points, init, d, maxIterations);
+          scores.push(res.inertia);
+          if (!best || res.inertia < best.inertia) best = { init, inertia: res.inertia };
+        }
+        const distinct = new Set(scores.map(v => v.toFixed(4))).size;
+        setRerunInfo(reruns > 1
+          ? `🔁 처음부터 끝까지 ${reruns}번 돌려 보고, 가장 잘 뭉친 결과가 나온 출발점을 골랐어요. (${reruns}번 중 서로 다른 결과: ${distinct}가지)`
+          : '🔁 딱 1번만 시도했어요. 운이 나쁘면 결과가 엉망일 수도 있어요!');
+        return best.init;
+      };
+
+      const validate = () => {
+        if (points.length < numClusters) { alert('군집 개수(K)보다 데이터가 많아야 해요! 캔버스를 클릭해 점을 더 찍어 주세요.'); return false; }
+        if (initMethod === 'manual' && manualCentroids.length < numClusters) {
+          alert(`${numClusters}개의 중심점을 모두 찍어 주세요! (현재 ${manualCentroids.length}개)`); return false;
+        }
+        return true;
+      };
+
+      const prepare = () => {
+        const init = chooseStart();
+        setCentroids(init);
+        setPoints(prev => prev.map(p => ({ ...p, label: null })));
+        setIteration(0); setConverged(false); setStoppedByMax(false);
+        setPhase('ASSIGN');
+        setManualCentroids([]); setIsSelecting(false);
+        setLastAction(`⭐ 1단계 중심점 찍기: ${methodName} 방법으로 중심점 ${numClusters}개를 찍었어요.`);
+      };
+
+      const runStep = useCallback(() => {
+        if (centroids.length === 0) return;
+        if (phase === 'ASSIGN') {
+          const newPts = points.map(p => ({ ...p, label: nearest(p, centroids, d) }));
+          const changed = newPts.some((p, i) => p.label !== points[i].label);
+          setPoints(newPts);
+          if (!changed && iteration > 0) {
+            setConverged(true); setIsRunning(false);
+            setLastAction('✅ 그룹을 옮긴 점이 하나도 없어요. 중심점이 더 이상 안 움직이니 군집 완성!');
+            return;
+          }
+          setPhase('UPDATE');
+          setLastAction('🔵 2단계 그룹 만들기: 모든 점을 가장 가까운 별의 그룹에 붙였어요.');
+        } else {
+          const labels = points.map(p => p.label);
+          const nc = updateCents(points, labels, centroids);
+          const moved = Math.max(...nc.map((c, i) => Math.hypot(c.x - centroids[i].x, c.y - centroids[i].y)));
+          const next = iteration + 1;
+          setCentroids(nc);
+          setIteration(next);
+          setPhase('ASSIGN');
+          if (moved < 0.5) {
+            setConverged(true); setIsRunning(false);
+            setLastAction('✅ 별이 더 이상 움직이지 않아요. 군집 완성!');
+          } else if (next >= maxIterations) {
+            setStoppedByMax(true); setIsRunning(false);
+            setLastAction(`⏱️ 최대 반복 횟수(${maxIterations}번)에 도달해서 강제로 멈췄어요.`);
+          } else {
+            setLastAction(`➡️ 3단계 중심점 이동: 별을 그룹의 평균 위치로 옮겼어요. (${next}번째 반복)`);
+          }
+        }
+      }, [points, centroids, phase, iteration, maxIterations, d]);
+
+      useEffect(() => {
+        if (isRunning && !converged && !stoppedByMax) {
+          const timer = setTimeout(runStep, 600);
+          return () => clearTimeout(timer);
+        }
+      }, [isRunning, converged, stoppedByMax, runStep]);
+
+      const handleStart = () => {
+        if (centroids.length === 0 || converged || stoppedByMax) {
+          if (!validate()) return;
+          prepare();
+        }
+        setIsRunning(true);
+      };
+      const handleStep = () => {
+        if (centroids.length === 0 || stoppedByMax) {
+          if (!validate()) return;
+          prepare();
+        } else {
+          runStep();
+        }
+      };
+      const newData = (gen) => {
+        setIsRunning(false);
+        setPoints(gen());
+        setCentroids([]); setIteration(0); setConverged(false); setStoppedByMax(false);
+        setPhase('ASSIGN'); setManualCentroids([]); setIsSelecting(false);
+        setLastAction(''); setRerunInfo('');
+      };
+
+      const handleCanvasClick = (e) => {
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = (e.clientX - rect.left) * (WIDTH / rect.width);
+        const y = (e.clientY - rect.top) * (HEIGHT / rect.height);
+        if (x < PADDING || x > WIDTH - PADDING || y < PADDING || y > HEIGHT - PADDING) return;
+        if (isSelecting) {
+          if (manualCentroids.length < numClusters) setManualCentroids([...manualCentroids, { x, y }]);
+          if (manualCentroids.length + 1 >= numClusters) setIsSelecting(false);
+        } else if (!isRunning) {
+          setPoints([...points.map(p => ({ ...p, label: null })), { x, y, label: null }]);
+          setCentroids([]); setIteration(0); setConverged(false); setStoppedByMax(false);
+          setPhase('ASSIGN'); setLastAction(''); setRerunInfo('');
+        }
+      };
+
+      const handleCheckClick = (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        setPopupPos({ x: rect.left + 20, y: rect.bottom + 5 });
+        setShowPopup(true);
+        setTimeout(() => setShowPopup(false), 900);
+      };
+
+      /* 캔버스 그리기 */
+      useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+        if (centroids.length > 0) {
+          for (let px = PADDING; px < WIDTH - PADDING; px += 5) {
+            for (let py = PADDING; py < HEIGHT - PADDING; py += 5) {
+              const c = CLUSTER_COLORS[nearest({ x: px + 2.5, y: py + 2.5 }, centroids, d) % 5].fill;
+              const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
+              ctx.fillStyle = `rgba(${r},${g},${b},0.13)`;
+              ctx.fillRect(px, py, 5, 5);
+            }
+          }
+        }
+
+        ctx.strokeStyle = '#ccfbf1';
+        ctx.lineWidth = 1;
+        for (let i = 0; i <= 6; i++) {
+          const x = PADDING + (WIDTH - 2 * PADDING) * (i / 6);
+          ctx.beginPath(); ctx.moveTo(x, PADDING); ctx.lineTo(x, HEIGHT - PADDING); ctx.stroke();
+        }
+        for (let i = 0; i <= 5; i++) {
+          const y = PADDING + (HEIGHT - 2 * PADDING) * (i / 5);
+          ctx.beginPath(); ctx.moveTo(PADDING, y); ctx.lineTo(WIDTH - PADDING, y); ctx.stroke();
+        }
+
+        points.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 8, 0, 2 * Math.PI);
+          if (p.label !== null && centroids.length > 0) {
+            const c = CLUSTER_COLORS[p.label % 5];
+            ctx.fillStyle = c.fill; ctx.strokeStyle = c.stroke;
+          } else {
+            ctx.fillStyle = '#9ca3af'; ctx.strokeStyle = '#4b5563';
+          }
+          ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+        });
+
+        const drawStar = (cx, cy, fill, dashed) => {
+          ctx.beginPath();
+          for (let i = 0; i < 10; i++) {
+            const rad = i % 2 === 0 ? 16 : 7;
+            const a = (i * Math.PI) / 5 - Math.PI / 2;
+            const x = cx + rad * Math.cos(a), y = cy + rad * Math.sin(a);
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.closePath();
+          ctx.globalAlpha = dashed ? 0.6 : 1;
+          ctx.fillStyle = fill; ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = '#111827'; ctx.lineWidth = 3;
+          if (dashed) ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        };
+        centroids.forEach((c, i) => drawStar(c.x, c.y, CLUSTER_COLORS[i % 5].fill, false));
+        manualCentroids.forEach((c, i) => drawStar(c.x, c.y, CLUSTER_COLORS[i % 5].fill, true));
+      }, [points, centroids, manualCentroids, d]);
+
+      const clusterCounts = Array.from({ length: numClusters }, (_, i) => points.filter(p => p.label === i).length);
+      const locked = isRunning;
+
+      return (
+        <div className="space-y-4">
+          {showPopup && <div className="popup" style={{ left: popupPos.x, top: popupPos.y }}>{SPARROW}</div>}
+
+          <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+            <p className="font-bold text-yellow-900 mb-1">💡 체험 방법</p>
+            <p className="text-base text-gray-700">① 캔버스를 클릭해 점을 찍거나 데이터 버튼을 눌러요 → ② K(군집 개수)를 정해요 → ③ <b>한 스텝 실행</b>으로 한 단계씩, 또는 <b>자동 실행</b>으로 끝까지 관찰해요.</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-5">
+            {/* 설정 패널 */}
+            <div className="space-y-4">
+              <div className="bg-teal-50 p-4 rounded-lg border border-teal-200">
+                <h3 className="font-bold text-teal-900 mb-3">⚙️ k-Means 설정</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm text-gray-700 block mb-1 font-bold">군집 개수 (K): <span className="text-teal-700">{numClusters}</span></label>
+                    <input type="range" min="2" max="5" value={numClusters} disabled={locked} className="w-full accent-teal-600"
+                      onChange={(e) => { setNumClusters(parseInt(e.target.value)); setManualCentroids([]); clearResult(); }} />
+                    <p className="text-xs text-gray-500">*몇 개의 그룹으로 나눌까요?</p>
+                  </div>
+
+                  <div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={normalize} disabled={locked} className="w-4 h-4 accent-teal-600"
+                        onChange={(e) => { setNormalize(e.target.checked); clearResult(); }} />
+                      <span className="text-sm text-gray-700 font-bold">Normalize (정규화)</span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-1">*가로·세로 범위를 0~1로 맞춰 거리를 재요</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm text-gray-700 font-bold mb-1">Initialization (처음 중심)</p>
+                    {[['kmeans++', 'KMeans++ (기본값)'], ['random', 'Random'], ['manual', '직접 찍기']].map(([v, t]) => (
+                      <label key={v} className="flex items-center gap-2 cursor-pointer py-0.5">
+                        <input type="radio" name="initMethod" value={v} checked={initMethod === v} disabled={locked} className="w-4 h-4 accent-teal-600"
+                          onChange={() => { setInitMethod(v); setManualCentroids([]); setIsSelecting(false); clearResult(); }} />
+                        <span className="text-sm text-gray-700">{t}</span>
+                      </label>
+                    ))}
+                    <p className="text-xs text-gray-500 mt-1">
+                      {initMethod === 'kmeans++' ? '*서로 멀리 떨어진 곳을 골라 찍어요'
+                        : initMethod === 'random' ? '*완전히 아무 데나 찍어요'
+                        : '*캔버스를 클릭해 직접 중심점을 찍어요'}
+                    </p>
+                    {initMethod === 'manual' && (
+                      <div className="mt-2 p-3 bg-white border border-teal-200 rounded-lg">
+                        <p className="text-sm font-bold text-teal-900">📍 찍은 중심점: {manualCentroids.length} / {numClusters}</p>
+                        <button onClick={() => { setManualCentroids([]); setIsSelecting(true); clearResult(); }} disabled={locked}
+                          className="w-full mt-2 bg-teal-500 text-white py-2 rounded font-bold hover:bg-teal-600 disabled:bg-gray-300 text-sm">
+                          {isSelecting ? '캔버스를 클릭하세요…' : '중심점 찍기 시작'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className={initMethod === 'manual' ? 'opacity-40' : ''}>
+                    <label className="text-sm text-gray-700 block mb-1 font-bold">Re-runs (여러 번 시도): <span className="text-teal-700">{reruns}</span></label>
+                    <input type="range" min="1" max="20" value={reruns} disabled={locked || initMethod === 'manual'} className="w-full accent-teal-600"
+                      onChange={(e) => { setReruns(parseInt(e.target.value)); clearResult(); }} />
+                    <p className="text-xs text-gray-500">*여러 번 해 보고 가장 좋은 결과를 골라요</p>
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-gray-700 block mb-1 font-bold">Max iterations (최대 반복): <span className="text-teal-700">{maxIterations}</span></label>
+                    <input type="range" min="1" max="300" value={maxIterations} disabled={locked} className="w-full accent-teal-600"
+                      onChange={(e) => setMaxIterations(parseInt(e.target.value))} />
+                    <p className="text-xs text-gray-500">*1~2로 줄이면 중간에 강제로 멈추는 걸 볼 수 있어요</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <h3 className="font-bold text-slate-900 mb-3">🎮 동작</h3>
+                <div className="space-y-2">
+                  <button onClick={handleStart} disabled={isRunning || points.length < numClusters}
+                    className="w-full bg-teal-600 text-white py-3 rounded-lg font-bold hover:bg-teal-700 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                    {isRunning ? '실행 중…' : (converged || stoppedByMax) ? '▶ 처음부터 다시 실행' : centroids.length ? '▶ 이어서 자동 실행' : '▶ 자동 실행'}
+                  </button>
+                  <button onClick={handleStep} disabled={isRunning || converged}
+                    className="w-full bg-emerald-500 text-white py-3 rounded-lg font-bold hover:bg-emerald-600 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                    ⏭ 한 스텝 실행
+                  </button>
+                  <button onClick={() => setIsRunning(false)} disabled={!isRunning}
+                    className="w-full bg-amber-500 text-white py-3 rounded-lg font-bold hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed">
+                    ⏸ 일시정지
+                  </button>
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button onClick={() => newData(genUniform)} disabled={isRunning}
+                      className="bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 disabled:opacity-40">🎲 흩어진 데이터</button>
+                    <button onClick={() => newData(genBlobs)} disabled={isRunning}
+                      className="bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 disabled:opacity-40">🫧 뭉친 데이터</button>
+                  </div>
+                  <button onClick={() => newData(() => [])} disabled={isRunning}
+                    className="w-full bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-bold text-sm hover:bg-gray-100 disabled:opacity-40">🧹 모두 지우기</button>
+                </div>
+              </div>
+
+              <div className="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                <h3 className="font-bold text-emerald-900 mb-3">📈 통계</h3>
+                <div className="space-y-2 text-sm">
+                  {[
+                    ['전체 데이터', `${points.length}개`, ''],
+                    ['반복 횟수', `${iteration}회`, 'text-teal-700'],
+                    ['초기화 방법', methodName, 'text-teal-700'],
+                    ['상태', converged ? '수렴 완료!' : stoppedByMax ? '강제 종료' : isRunning ? '실행 중' : '대기 중',
+                      converged ? 'text-emerald-600' : stoppedByMax ? 'text-red-600' : isRunning ? 'text-amber-600' : 'text-gray-600'],
+                  ].map(([k, v, c]) => (
+                    <div key={k} className="flex justify-between items-center p-2 bg-white rounded">
+                      <span className="font-medium">{k}</span><span className={`font-bold ${c}`}>{v}</span>
+                    </div>
+                  ))}
+                  {centroids.length > 0 && points.some(p => p.label !== null) && (
+                    <>
+                      <p className="font-bold text-emerald-900 pt-2 border-t border-emerald-200">군집별 데이터 개수</p>
+                      {clusterCounts.map((n, i) => (
+                        <div key={i} className="flex justify-between items-center p-2 bg-white rounded">
+                          <span className="font-medium flex items-center gap-2">
+                            <span className="w-3 h-3 rounded-full inline-block" style={{ backgroundColor: CLUSTER_COLORS[i].fill }}></span>
+                            군집 {i + 1}
+                          </span>
+                          <span className="font-bold" style={{ color: CLUSTER_COLORS[i].stroke }}>{n}개</span>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* 캔버스 */}
+            <div className="lg:col-span-3 space-y-4">
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-bold text-gray-900 mb-3">
+                  🎯 {isSelecting ? `중심점을 찍어 주세요 (${manualCentroids.length}/${numClusters})` : '2차원 특성 공간 (클릭하면 점이 추가돼요)'}
+                </h3>
+                <div className="bg-white rounded-lg overflow-hidden border-2 border-teal-200">
+                  <canvas ref={canvasRef} width={WIDTH} height={HEIGHT} onClick={handleCanvasClick}
+                    className="block w-full cursor-crosshair" />
+                </div>
+                <div className={`mt-3 p-3 rounded-lg text-base font-bold min-h-[48px] ${lastAction ? 'bg-teal-600 text-white' : 'bg-white text-gray-400 border border-dashed border-gray-300'}`}>
+                  {lastAction || '아직 시작 전이에요. 한 스텝 실행을 눌러 1단계부터 살펴보세요!'}
+                </div>
+                {rerunInfo && <p className="mt-2 text-sm text-gray-600 bg-white rounded-lg p-2 border border-gray-200">{rerunInfo}</p>}
+
+                {converged && (
+                  <div className="slide-in mt-4 bg-gradient-to-r from-emerald-50 to-teal-50 p-5 rounded-lg border-2 border-emerald-400">
+                    <h3 className="text-xl font-bold text-emerald-800 mb-3 flex items-center gap-2">
+                      <span className="text-xl" onClick={handleCheckClick} style={{ cursor: 'pointer' }}>✅</span>
+                      <span>군집화 완료!</span>
+                    </h3>
+                    <div className="bg-white p-4 rounded-lg shadow-sm space-y-2 text-base text-gray-700">
+                      <p>⭐ <b>별</b>은 각 군집의 중심점(평균 위치)이에요.</p>
+                      <p>🎨 <b>색칠된 영역</b>은 그 별이 가장 가까운 구역이에요.</p>
+                      <p>🔁 <b className="text-teal-700">{iteration}번 반복</b>해서 <b className="text-teal-700">{numClusters}개 군집</b>으로 나눴어요.</p>
+                      <p>🤔 <b>생각해 보기:</b> Random + Re-runs 1 로 여러 번 실행하면 결과가 매번 같을까요?</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap justify-center gap-5 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 bg-gray-400 rounded-full border-2 border-gray-600"></div>
+                  <span className="font-medium text-gray-700">아직 그룹 없음</span>
+                </div>
+                {CLUSTER_COLORS.slice(0, numClusters).map((c, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded-full border-2" style={{ backgroundColor: c.fill, borderColor: c.stroke }}></div>
+                    <span className="font-medium text-gray-700">군집 {i + 1}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2">
+                  <svg width="22" height="22" viewBox="0 0 22 22"><polygon points={starPoints(11, 12, 10, 4.5)} fill="#fbbf24" stroke="#111827" strokeWidth="2" /></svg>
+                  <span className="font-medium text-gray-700">중심점</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ───────────────── 탭5: 옵션 설명용 작은 그림들 ───────────────── */
+    const NormalizeDemo = () => {
+      const [on, setOn] = useState(false);
+      const rows = [['지민', 158, 48], ['서준', 172, 70], ['하린', 165, 55]];
+      const nH = (h) => fmt((h - 150) / 30), nW = (w) => fmt((w - 40) / 40);
+      return (
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mt-3">
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <p className="font-bold text-gray-800">👕 키(150~180)와 몸무게(40~80) 예시</p>
+            <button onClick={() => setOn(!on)} className={`px-4 py-2 rounded-lg font-bold text-sm ${on ? 'bg-teal-600 text-white' : 'bg-gray-100 text-gray-700 border border-gray-300'}`}>
+              {on ? '✔ 정규화 켜짐' : '정규화 켜기'}
+            </button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-base text-center">
+              <thead><tr className="bg-teal-50 text-teal-900"><th className="p-2">학생</th><th className="p-2">키</th><th className="p-2">몸무게</th></tr></thead>
+              <tbody>
+                {rows.map(([n, h, w]) => (
+                  <tr key={n} className="border-t border-gray-100">
+                    <td className="p-2 font-bold">{n}</td>
+                    <td className="p-2">{on ? nH(h) : `${h}cm`}</td>
+                    <td className="p-2">{on ? nW(w) : `${w}kg`}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-sm text-gray-600 mt-2">
+            {on ? '계산식: (값 − 최솟값) ÷ (최댓값 − 최솟값). 이제 키와 몸무게 모두 0~1 사이라 공평하게 비교돼요!'
+                : '키는 최대 30, 몸무게는 최대 40만큼 차이 나요. 범위가 넓은 몸무게가 거리 계산을 더 크게 좌우해요.'}
+          </p>
+        </div>
+      );
+    };
+
+    const InitCompare = () => {
+      const pts = useMemo(() => makeBlobData(5, 7, 0.6), []);
+      const X = (x) => 10 + x * 20, Y = (y) => 160 - y * 20;
+      const bad = [{ x: 1.6, y: 1.6 }, { x: 2.3, y: 2.3 }, { x: 1.9, y: 2.7 }];
+      const good = [{ x: 2, y: 2 }, { x: 6, y: 2.4 }, { x: 4, y: 5.8 }];
+      const panel = (cents, title, color, desc) => (
+        <div className={`rounded-lg border-2 p-3 ${color}`}>
+          <p className="font-bold text-gray-800 mb-1">{title}</p>
+          <svg viewBox="0 0 180 170" className="w-full bg-white rounded">
+            {pts.map((p, i) => <circle key={i} cx={X(p.x)} cy={Y(p.y)} r="4.5" fill="#94a3b8" />)}
+            {cents.map((c, i) => <polygon key={i} points={starPoints(X(c.x), Y(c.y), 10, 4.5)} fill={CLUSTER_COLORS[i].fill} stroke="#111827" strokeWidth="2" />)}
+          </svg>
+          <p className="text-sm text-gray-600 mt-1">{desc}</p>
+        </div>
+      );
+      return (
+        <div className="grid grid-cols-2 gap-3 mt-3">
+          {panel(bad, '🎲 Random (운이 나쁠 때)', 'border-red-200 bg-red-50', '중심점이 구석에 옹기종기! 군집 나누기가 엉망이 될 수 있어요.')}
+          {panel(good, '🎯 KMeans++', 'border-emerald-200 bg-emerald-50', '데이터 분포를 보고 서로 멀리 떨어지게 골라요. 결과가 안정적이에요.')}
+        </div>
+      );
+    };
+
+    const OptionExplorer = () => {
+      const [sel, setSel] = useState('k');
+      const opts = {
+        k: {
+          title: 'Number of clusters (군집 개수)', def: 'Fixed',
+          body: (
+            <div className="space-y-3">
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <p className="font-bold text-teal-800">Fixed: K</p>
+                <p className="text-base text-gray-700">"무조건 K개 군집으로 나눠!" 라는 뜻이에요. 예) Fixed 5 → 항상 5개 그룹</p>
+              </div>
+              <div className="bg-white rounded-lg p-4 border border-gray-200">
+                <p className="font-bold text-teal-800">From a to b</p>
+                <p className="text-base text-gray-700">a개부터 b개까지 모두 시도해 보고 가장 괜찮은 군집 수를 찾아줘요.</p>
+                <p className="text-base text-gray-700 mt-1">이때 <b>실루엣 점수(Silhouette Score)</b>가 가장 높은 K가 가장 잘 나뉜 군집 개수예요. 같은 그룹끼리는 가깝고, 다른 그룹과는 멀수록 점수가 1에 가까워져요.</p>
+              </div>
+            </div>
+          ),
+        },
+        norm: {
+          title: 'Normalize columns (컬럼 정규화)', def: '체크',
+          body: (
+            <div>
+              <p className="text-base text-gray-700">데이터의 <b>크기(숫자 범위)를 비슷하게 맞춰 주는 작업</b>이에요. 그냥 쓰면 범위가 넓은 특성이 거리 계산에 더 큰 영향을 줘요. 그래서 모두 0~1 사이 값으로 스케일을 맞춰요.</p>
+              <NormalizeDemo />
+            </div>
+          ),
+        },
+        init: {
+          title: 'Initialization (처음 중심 정하기)', def: 'Initialize with KMeans++',
+          body: (
+            <div>
+              <p className="text-base text-gray-700">1단계에서 중심점을 어디에 찍을지 정하는 방법이에요.</p>
+              <InitCompare />
+            </div>
+          ),
+        },
+        rerun: {
+          title: 'Re-runs (여러 번 시도해 보기)', def: '10',
+          body: (
+            <div className="space-y-2 text-base text-gray-700">
+              <p>🔁 <b>같은 작업을 n번 처음부터 끝까지 반복</b>해서 가장 좋은 결과를 보여줘요.</p>
+              <p>한 번만 하면 운이 나쁠 수도 있으니까! 출발점(1단계)이 달라지면 결과도 달라질 수 있거든요.</p>
+              <p className="bg-teal-50 border-l-4 border-teal-500 rounded p-3">🎮 <b>K-평균 체험</b> 탭에서 Re-runs를 1로 두고 여러 번 실행해 보세요. 결과가 달라지는 걸 볼 수 있어요.</p>
+            </div>
+          ),
+        },
+        iter: {
+          title: 'Maximum iterations (최대 몇 번까지?)', def: '300',
+          body: (
+            <div className="space-y-2 text-base text-gray-700">
+              <p>⏱️ 군집을 나누는 계산(2단계 → 3단계)을 <b>최대 n번까지만</b> 반복해요.</p>
+              <p>중심점을 300번 옮겼는데도 군집이 확정되지 않으면 거기서 강제로 멈춰요. 너무 오래 걸리지 않게 하는 <b>무한 반복 방지용 안전장치</b>예요.</p>
+            </div>
+          ),
+        },
+      };
+      const Row = ({ id, children }) => (
+        <button onClick={() => setSel(id)}
+          className={`w-full text-left rounded-md px-3 py-2 border-2 transition-all ${sel === id ? 'border-teal-500 bg-teal-50 shadow' : 'border-transparent hover:bg-gray-100'}`}>
+          {children}
+        </button>
+      );
+      return (
+        <div className="grid lg:grid-cols-5 gap-5">
+          <div className="lg:col-span-2">
+            <div className="bg-gray-100 rounded-lg border border-gray-300 shadow-sm overflow-hidden text-sm">
+              <div className="bg-white px-3 py-2 border-b border-gray-300 font-bold text-gray-700">✳️ k-Means - Orange</div>
+              <div className="p-2 space-y-1">
+                <Row id="k">
+                  <p className="text-gray-500 text-xs">Number of clusters</p>
+                  <p>◉ Fixed: <span className="bg-white border px-2 rounded">3</span></p>
+                  <p>○ From <span className="bg-white border px-2 rounded">2</span> to <span className="bg-white border px-2 rounded">8</span></p>
+                </Row>
+                <Row id="norm">
+                  <p className="text-gray-500 text-xs">Preprocessing</p>
+                  <p>☑ Normalize columns</p>
+                </Row>
+                <Row id="init">
+                  <p className="text-gray-500 text-xs">Initialization</p>
+                  <p><span className="bg-white border px-2 rounded">Initialize with KMeans++ ▾</span></p>
+                </Row>
+                <Row id="rerun">
+                  <p>Re-runs: <span className="bg-white border px-2 rounded">10</span></p>
+                </Row>
+                <Row id="iter">
+                  <p>Maximum iterations: <span className="bg-white border px-2 rounded">300</span></p>
+                </Row>
+              </div>
+            </div>
+            <p className="text-sm text-gray-500 mt-2 text-center">👆 궁금한 옵션을 눌러 보세요</p>
+          </div>
+          <div className="lg:col-span-3">
+            <div key={sel} className="slide-in bg-gradient-to-br from-teal-50 to-emerald-50 rounded-xl border-2 border-teal-200 p-5">
+              <div className="flex items-start justify-between gap-2 flex-wrap mb-3">
+                <h3 className="text-lg font-bold text-teal-900">{opts[sel].title}</h3>
+                <span className="bg-emerald-500 text-white text-sm font-bold px-3 py-1 rounded">기본값: {opts[sel].def}</span>
+              </div>
+              {opts[sel].body}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    /* ───────────────── 탭6: Orange 워크플로 그림 ───────────────── */
+    const OrangeWorkflow = () => {
+      const node = (x, y, fill, icon, label) => (
+        <g>
+          <circle cx={x} cy={y} r="30" fill={fill} stroke="#cbd5e1" strokeWidth="2" />
+          <text x={x} y={y + 8} fontSize="24" textAnchor="middle">{icon}</text>
+          <text x={x} y={y + 52} fontSize="14" textAnchor="middle" fill="#1f2937" fontWeight="bold">{label}</text>
+        </g>
+      );
+      return (
+        <svg viewBox="0 0 620 240" className="w-full max-w-2xl mx-auto block">
+          <path d="M 100 60 C 170 60, 190 60, 250 60" stroke="#94a3b8" strokeWidth="3" fill="none" />
+          <path d="M 95 75 C 150 170, 190 170, 250 170" stroke="#94a3b8" strokeWidth="3" fill="none" />
+          <path d="M 310 170 C 360 170, 390 170, 440 170" stroke="#94a3b8" strokeWidth="3" fill="none" />
+          <text x="175" y="52" fontSize="12" fill="#64748b" textAnchor="middle">Data</text>
+          <text x="160" y="150" fontSize="12" fill="#64748b" textAnchor="middle">Data</text>
+          <text x="375" y="162" fontSize="12" fill="#64748b" textAnchor="middle">Data</text>
+          {node(70, 60, '#fed7aa', '📄', 'File')}
+          {node(280, 60, '#fbcfe8', '📈', 'Scatter Plot')}
+          {node(280, 170, '#bae6fd', '✳️', 'k-Means')}
+          {node(470, 170, '#fbcfe8', '📈', 'Scatter Plot (1)')}
+        </svg>
+      );
+    };
+
+    /* ───────────────── 탭7: 알고리즘 선택 트리의 간선(연결선) ─────────────────
+       7칸 격자에서 i번째 칸의 가운데 = (i + 0.5) / 7 → col(i + 0.5) 로 표기.
+       groups: [{ from: 부모 x(%), to: [자식 x(%) …] }]  */
+    const col = (c) => (c / 7) * 100;
+    const LINE = '#64748b';
+    const TreeEdges = ({ height = 36, groups = [], labels = [] }) => {
+      const mid = Math.round(height / 2);
+      const parts = [];
+      groups.forEach((g, gi) => {
+        const xs = [g.from, ...g.to];
+        const lo = Math.min(...xs), hi = Math.max(...xs);
+        // 부모에서 내려오는 선
+        parts.push(<div key={`v${gi}`} style={{ position: 'absolute', left: `${g.from}%`, top: 0, height: mid + 1, width: 2, background: LINE, transform: 'translateX(-1px)' }} />);
+        // 가로 연결선
+        if (hi > lo) parts.push(<div key={`h${gi}`} style={{ position: 'absolute', left: `${lo}%`, width: `${hi - lo}%`, top: mid, height: 2, background: LINE }} />);
+        // 자식으로 내려가는 선 + 화살촉
+        g.to.forEach((x, ti) => {
+          parts.push(<div key={`c${gi}-${ti}`} style={{ position: 'absolute', left: `${x}%`, top: mid, bottom: 7, width: 2, background: LINE, transform: 'translateX(-1px)' }} />);
+          parts.push(<div key={`a${gi}-${ti}`} style={{ position: 'absolute', left: `${x}%`, bottom: 0, width: 0, height: 0, transform: 'translateX(-6px)',
+            borderLeft: '6px solid transparent', borderRight: '6px solid transparent', borderTop: `8px solid ${LINE}` }} />);
+        });
+      });
+      return (
+        <div style={{ position: 'relative', height }} aria-hidden="true">
+          {parts}
+          {labels.map((l, i) => (
+            <span key={`l${i}`} className={`absolute text-sm font-bold bg-white px-1.5 ${l.cls || ''}`}
+              style={{ left: `${l.x}%`, top: mid + 4, transform: l.left ? 'translateX(calc(-100% - 6px))' : 'translateX(6px)' }}>{l.text}</span>
+          ))}
+        </div>
+      );
+    };
+
+    /* ───────────────── 실습 자료 링크 (원본 PPT와 동일) ───────────────── */
+    const FILE_LINKS = {
+      csv: { name: '다중분류훈련.csv', desc: '실습 데이터 (음식 42개의 매운 정도·물의 양)', url: 'https://drive.google.com/file/d/1f3M-EMEVTmhZ6o1CLsqE-Xyqrwk2g3Bp/view?usp=sharing' },
+      ows: { name: 'K-Means.ows', desc: '완성된 Orange 워크플로 (정답 확인용)', url: 'https://drive.google.com/file/d/1eOO9LY0ss0Y6-g2hj6fenHv2gpO1ApEd/view?usp=sharing' },
+    };
+    const FileLink = ({ f, small }) => (
+      <a href={f.url} target="_blank" rel="noopener noreferrer"
+        className={`inline-flex items-center gap-2 bg-white border-2 border-teal-500 text-teal-700 rounded-lg font-bold hover:bg-teal-50 shadow-sm ${small ? 'px-3 py-1.5 text-sm' : 'px-4 py-2 text-base'}`}>
+        📥 {f.name}
+      </a>
+    );
+
+    /* ───────────────── 퀴즈 데이터 ───────────────── */
+    const quizData = [
+      { id: 'q1', q: 'K-평균 알고리즘에서 K는 무엇을 뜻할까요?',
+        opts: ['반복 횟수', '그룹(군집)의 개수', '데이터의 개수', '중심점까지의 거리'], ans: 1,
+        exp: 'K는 그룹의 개수예요. K=3이면 데이터를 3개 그룹으로 나눠요. K는 사람이 미리 정해 줘요.' },
+      { id: 'q2', q: 'K-평균 알고리즘은 어떤 기계학습에 속할까요?',
+        opts: ['지도학습(분류)', '지도학습(회귀)', '비지도학습(군집화)', '강화학습'], ans: 2,
+        exp: '정답(레이블) 없이 데이터의 특징만 보고 비슷한 것끼리 묶으니까 비지도학습의 군집화예요.' },
+      { id: 'q3', q: '2단계 "군집 할당"에서는 무엇을 할까요?',
+        opts: ['중심점을 아무 데나 찍는다', '각 데이터를 가장 가까운 중심점의 그룹에 넣는다', '그룹의 평균 위치를 계산한다', '데이터를 0~1로 바꾼다'], ans: 1,
+        exp: '모든 데이터가 가장 가까운 중심점을 골라 그 그룹에 소속돼요. 가장 가까운 선생님 옆에 서는 것과 같아요!' },
+      { id: 'q4', q: '어떤 그룹에 점 (1, 2), (3, 4), (5, 0)이 있어요. 중심점은 어디로 이동할까요?',
+        opts: ['(3, 2)', '(9, 6)', '(1, 0)', '(5, 4)'], ans: 0,
+        exp: 'x 평균 = (1+3+5)÷3 = 3, y 평균 = (2+4+0)÷3 = 2. 그래서 중심점은 (3, 2)로 이동해요.' },
+      { id: 'q5', q: 'K-평균의 반복은 언제 멈출까요?',
+        opts: ['K번 반복하면', '중심점이 더 이상 움직이지 않으면', '데이터가 모두 같은 색이 되면', '처음 중심점으로 돌아오면'], ans: 1,
+        exp: '2단계와 3단계를 반복하다가 중심점이 거의 안 움직이면 멈춰요. 혹시 너무 오래 걸리면 Maximum iterations에서 강제로 멈춰요.' },
+      { id: 'q6', q: 'Normalize columns(정규화)를 하는 이유로 알맞은 것은?',
+        opts: ['데이터 개수를 늘리려고', '특성들의 숫자 범위를 비슷하게 맞춰 공평하게 거리를 재려고', '정답(레이블)을 만들려고', '그래프 색깔을 바꾸려고'], ans: 1,
+        exp: '키(150~180)와 몸무게(40~80)처럼 범위가 다르면 한 특성이 계산을 좌우해요. 0~1로 맞추면 공평해져요.' },
+      { id: 'q7', q: '다음 중 K-평균 알고리즘의 단점이 아닌 것은?',
+        opts: ['K를 미리 정해야 한다', '시작점에 따라 결과가 다르다', '이상치에 약하다', '계산이 빠르다'], ans: 3,
+        exp: '계산이 빠르고 원리가 단순한 건 K-평균의 장점이에요!' },
+    ];
+
+    /* ───────────────── 메인 앱 ───────────────── */
+    const App = ({ initialTab = 'intro' }) => {
+      const [activeTab, setActiveTab] = useState(initialTab);
+      const [showGoal, setShowGoal] = useState(true);
+      const [quizAnswers, setQuizAnswers] = useState({});
+      const [shakeId, setShakeId] = useState(null);
+      const [orangeDone, setOrangeDone] = useState({});
+      const [notes, setNotes] = useState({});
+
+      const handleQuiz = (qid, idx) => {
+        if (quizAnswers[qid] !== undefined) return;
+        const q = quizData.find(q => q.id === qid);
+        if (idx !== q.ans) { setShakeId(qid); setTimeout(() => setShakeId(null), 400); }
+        setQuizAnswers(prev => ({ ...prev, [qid]: idx }));
+      };
+      const calcScore = () => quizData.filter(q => quizAnswers[q.id] === q.ans).length;
+
+      const tabs = [
+        { id: 'intro',   label: '🧺 군집화란?' },
+        { id: 'meaning', label: '🔢 K와 평균' },
+        { id: 'steps',   label: '👣 4단계 원리' },
+        { id: 'sim',     label: '🎮 K-평균 체험' },
+        { id: 'options', label: '⚙️ 옵션 이해하기' },
+        { id: 'orange',  label: '🍊 Orange 실습' },
+        { id: 'review',  label: '⚖️ 장단점·활용' },
+        { id: 'quiz',    label: '🎯 퀴즈' },
+      ];
+      const tabIdx = tabs.findIndex(t => t.id === activeTab);
+      const goTab = (id) => { setActiveTab(id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+
+      const orangeSteps = [
+        { tab: 'Data 탭', tabColor: 'bg-orange-100 text-orange-800', title: 'File 위젯으로 데이터 불러오기', link: 'csv',
+          items: ['📁 폴더 아이콘을 눌러 본인학번₩다중분류훈련.csv 를 열어요.', 'Info에서 42개 데이터(instances)를 확인해요. 결측치·이상치는 없어요.', '매운 정도, 물의 양 → Role을 feature 로 둬요.', '종류(짜장·짬뽕·쫄면) → Role을 meta 로 바꿔요. (skip도 가능) 군집화는 target(정답)이 필요 없어요!', 'Apply 를 누르고, 아래에 42가 표시되는지 확인해요.'] },
+        { tab: 'Visualize 탭', tabColor: 'bg-pink-100 text-pink-800', title: 'Scatter Plot으로 먼저 살펴보기',
+          items: ['File → Scatter Plot 을 연결해요.', 'Axis x: 매운 정도, Axis y: 물의 양 으로 정해요.', 'Color: 종류 로 정하고, 점들이 어느 위치에 모여 있는지 확인해요.'] },
+        { tab: 'Unsupervised 탭', tabColor: 'bg-sky-100 text-sky-800', title: 'k-Means 위젯 연결하고 설정하기',
+          items: ['File → k-Means 를 연결해요.', 'Number of clusters: Fixed 에 군집 개수를 입력해요.', 'Normalize columns 체크, Initialize with KMeans++, Re-runs 10, Maximum iterations 300 (모두 기본값)을 확인해요.'] },
+        { tab: 'Visualize 탭', tabColor: 'bg-pink-100 text-pink-800', title: '군집 결과를 Scatter Plot (1)로 보기', link: 'ows', linkNote: '막히면 완성본을 열어 비교해 보세요:',
+          items: ['k-Means → Scatter Plot (1) 을 연결해요.', 'Axis x: 매운 정도, Axis y: 물의 양, Color: Cluster 로 정해요.', '군집 개수를 2 → 3 → 4 → 5 로 바꿔 가며 결과를 비교해요.', '완성한 작업을 K-Means.ows 로 저장해요.'] },
+      ];
+      const doneCount = orangeSteps.filter((_, i) => orangeDone[i]).length;
+
+      const Next = () => tabIdx < tabs.length - 1 ? (
+        <div className="flex justify-between items-center pt-4 border-t border-gray-100 mt-6">
+          {tabIdx > 0
+            ? <button onClick={() => goTab(tabs[tabIdx - 1].id)} className="text-teal-700 font-bold hover:underline">◀ {tabs[tabIdx - 1].label}</button>
+            : <span></span>}
+          <button onClick={() => goTab(tabs[tabIdx + 1].id)}
+            className="bg-teal-600 text-white px-5 py-2 rounded-lg font-bold hover:bg-teal-700 shadow">다음: {tabs[tabIdx + 1].label} ▶</button>
+        </div>
+      ) : null;
+
+      return (
+        <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden">
+
+          {/* 헤더 */}
+          <div className="bg-gradient-to-r from-teal-700 to-emerald-700 p-6 text-white">
+            <div className="flex justify-between items-center mb-2 gap-3">
+              <div className="text-base text-teal-100">고등학교 인공지능기초 학습자료</div>
+              <a href="index.html"
+                className="bg-white text-teal-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-teal-50 transition-all shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap">
+                🏠 홈으로
+              </a>
+            </div>
+            <h1 className="text-3xl font-bold mb-2">🧺 K-평균 알고리즘 - 비슷한 것끼리 모으기</h1>
+            <p className="text-teal-100">정답을 알려주지 않아도, 컴퓨터가 스스로 비슷한 데이터끼리 그룹을 만드는 방법을 체험해 봐요!</p>
+            <button onClick={() => setShowGoal(!showGoal)}
+              className="w-full bg-white/10 hover:bg-white/15 rounded-lg p-4 mt-4 transition-colors text-left">
+              <div className="flex items-center justify-between">
+                <p className="font-bold">🎯 오늘 우리가 할 수 있게 될 것</p>
+                <span className={`text-xl transition-transform duration-300 ${showGoal ? 'rotate-180' : ''}`}>⌄</span>
+              </div>
+              {showGoal && (
+                <div className="slide-in mt-2 space-y-1">
+                  <p className="text-teal-50 text-base">🧺 군집화가 무엇인지, 왜 비지도학습인지 설명할 수 있어요.</p>
+                  <p className="text-teal-50 text-base">👣 K-평균 알고리즘이 중심점을 찍고, 그룹을 만들고, 중심점을 옮기는 과정을 순서대로 설명할 수 있어요.</p>
+                  <p className="text-teal-50 text-base">🍊 Orange의 k-Means 위젯으로 데이터를 직접 군집화하고 결과를 해석할 수 있어요.</p>
+                </div>
+              )}
+            </button>
+          </div>
+
+          {/* 탭 */}
+          <div className="flex gap-2 p-4 bg-gray-50 border-b border-gray-200 overflow-x-auto">
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)}
+                className={`px-5 py-2 rounded-lg font-bold text-base transition-all whitespace-nowrap ${
+                  activeTab === t.id
+                    ? 'bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-md'
+                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="p-6">
+
+            {/* ── 탭1: 군집화란? ── */}
+            {activeTab === 'intro' && (
+              <div className="slide-in space-y-6">
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                  <p className="font-bold text-yellow-900 mb-1">💡 학습 방법</p>
+                  <p className="text-base text-gray-700">탭을 왼쪽부터 순서대로 눌러 보며 공부해요. 버튼을 직접 눌러 체험할 수 있어요!</p>
+                </div>
+
+                <div className="bg-gradient-to-r from-teal-50 to-emerald-50 p-6 rounded-xl border border-teal-200">
+                  <h2 className="text-xl font-bold text-teal-900 mb-2">🤔 섞여 있는 공, 어떻게 정리할까요?</h2>
+                  <p className="text-base text-gray-700 mb-4 leading-relaxed">
+                    여기에 수많은 공이 섞여 있어요. 누군가 "정답"을 알려주지 않아도 우리는 본능적으로 비슷한 색끼리 모으게 돼요.
+                    <b> 컴퓨터에게도 이 본능을 가르쳐 줄 수 있을까요?</b>
+                  </p>
+                  <BallSort />
+                </div>
+
+                <div className="bg-teal-100 p-5 rounded-lg border-l-4 border-teal-600">
+                  <p className="text-lg text-gray-800 leading-relaxed">
+                    <span className="font-bold text-teal-800">군집화(Clustering)</span>란 데이터를 <span className="font-bold text-teal-800">비슷한 특성을 가진 그룹</span>으로 묶는 것이에요.
+                  </p>
+                </div>
+
+                <div className="grid md:grid-cols-3 gap-4">
+                  {[
+                    ['👕', '학생 체형 분류', '키와 몸무게를 기준으로 체형이 비슷한 그룹 찾기'],
+                    ['🛒', '고객 세분화', '쇼핑몰에서 구매 패턴이 비슷한 손님끼리 모으기'],
+                    ['🎨', '이미지 분할', '사진 속에서 비슷한 색깔끼리 묶어 용량 줄이기'],
+                  ].map(([ic, t, d]) => (
+                    <div key={t} className="bg-white border-2 border-teal-100 rounded-xl p-5 text-center">
+                      <p className="text-4xl mb-2">{ic}</p>
+                      <p className="font-bold text-teal-800 text-lg mb-1">{t}</p>
+                      <p className="text-base text-gray-600">{d}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-3">⚖️ 지도학습 vs 비지도학습</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-5">
+                      <p className="font-bold text-blue-800 text-lg mb-2">📝 지도학습</p>
+                      <p className="text-base text-gray-700">정답(레이블)이 <b>있어요.</b> "이건 짜장면이야"처럼 답을 알려주며 학습해요.</p>
+                      <p className="text-base text-gray-500 mt-2">예) 분류, 회귀</p>
+                    </div>
+                    <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5">
+                      <p className="font-bold text-emerald-800 text-lg mb-2">🧭 비지도학습</p>
+                      <p className="text-base text-gray-700">정답(레이블)이 <b>없어요.</b> 데이터의 특징만 보고 스스로 비슷한 것끼리 묶어요.</p>
+                      <p className="text-base text-gray-500 mt-2">예) 군집화 → <b className="text-emerald-700">오늘 배울 K-평균 알고리즘!</b></p>
+                    </div>
+                  </div>
+                </div>
+                <Next />
+              </div>
+            )}
+
+            {/* ── 탭2: K와 평균 ── */}
+            {activeTab === 'meaning' && (
+              <div className="slide-in space-y-6">
+                <div className="bg-teal-100 p-5 rounded-lg border-l-4 border-teal-600">
+                  <p className="text-lg text-gray-800 leading-relaxed">
+                    <span className="font-bold text-teal-800">K-평균 알고리즘(K-Means)</span>은 데이터의 특징만 보고 <span className="font-bold text-teal-800">K개의 군집</span>으로 묶는 알고리즘이에요.
+                  </p>
+                </div>
+                <div className="grid lg:grid-cols-2 gap-5">
+                  <div className="bg-white border-2 border-teal-200 rounded-xl p-5">
+                    <h3 className="text-xl font-bold text-teal-800 mb-1">K 란?</h3>
+                    <p className="text-base text-gray-700 mb-4"><b>그룹의 개수</b>를 뜻해요. K를 바꿔 가며 같은 데이터가 어떻게 나뉘는지 보세요.</p>
+                    <KChooser />
+                  </div>
+                  <div className="bg-white border-2 border-teal-200 rounded-xl p-5">
+                    <h3 className="text-xl font-bold text-teal-800 mb-1">평균(Means) 이란?</h3>
+                    <p className="text-base text-gray-700 mb-4">각 그룹의 <b>중심 위치</b>를 뜻해요. 그룹에 속한 점들의 좌표를 평균 내면 돼요.</p>
+                    <MeanCalc />
+                  </div>
+                </div>
+                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4">
+                  <p className="text-base text-gray-700">⭐ 이 자료에서 <b>별 모양</b>은 언제나 그룹의 <b>중심점(평균 위치)</b>을 뜻해요. 중심에 가까운 데이터끼리 같은 그룹이 돼요.</p>
+                </div>
+                <Next />
+              </div>
+            )}
+
+            {/* ── 탭3: 4단계 원리 ── */}
+            {activeTab === 'steps' && (
+              <div className="slide-in space-y-6">
+                <div>
+                  <h2 className="text-xl font-bold text-teal-900 mb-2">👣 어떻게 작동할까? 4단계로 알아봐요!</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {[
+                      ['중심점 찍기', 'K개의 중심점을 아무 데나 찍어요'],
+                      ['그룹 만들기', '가까운 중심점에 데이터를 붙여요 (군집 할당)'],
+                      ['중심점 이동', '그룹 평균으로 중심점을 옮겨요'],
+                      ['반복하기', '더 이상 안 움직일 때까지 2~3단계를 반복해요'],
+                    ].map(([t, d], i) => (
+                      <div key={t} className="bg-teal-50 border border-teal-200 rounded-xl p-4">
+                        <p className="w-8 h-8 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center mb-2">{i + 1}</p>
+                        <p className="font-bold text-teal-900">{t}</p>
+                        <p className="text-sm text-gray-600 mt-1">{d}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="bg-gray-50 rounded-xl border border-gray-200 p-5">
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">🎬 K = 2 예시를 한 장면씩 따라가 보기</h3>
+                  <p className="text-base text-gray-600 mb-4"><b>다음 ▶</b> 버튼을 눌러 교과서 그림의 과정을 직접 넘겨 보세요.</p>
+                  <StepDemo />
+                </div>
+                <div className="bg-teal-100 p-4 rounded-lg border-l-4 border-teal-600">
+                  <p className="text-base text-gray-700">🧑‍🏫 2단계는 마치 친구들이 <b>가장 가까운 선생님 옆에 서는 것</b>과 같아요. 선생님(중심점)이 무리의 한가운데로 걸어가면, 몇몇 친구는 다른 선생님이 더 가까워져서 자리를 옮기기도 해요.</p>
+                </div>
+                <Next />
+              </div>
+            )}
+
+            {/* ── 탭4: 체험 ── */}
+            {activeTab === 'sim' && (
+              <div className="slide-in">
+                <KMeansSimulator />
+                <Next />
+              </div>
+            )}
+
+            {/* ── 탭5: 옵션 ── */}
+            {activeTab === 'options' && (
+              <div className="slide-in space-y-5">
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                  <p className="font-bold text-yellow-900 mb-1">💡 Orange의 k-Means 위젯 옵션</p>
+                  <p className="text-base text-gray-700">Orange 실습 전에, 위젯 안의 옵션이 무슨 뜻인지 알아봐요. 대부분 기본값 그대로 써도 괜찮아요.</p>
+                </div>
+                <OptionExplorer />
+                <Next />
+              </div>
+            )}
+
+            {/* ── 탭6: Orange 실습 ── */}
+            {activeTab === 'orange' && (
+              <div className="slide-in space-y-6">
+                <div className="bg-gradient-to-r from-orange-50 to-amber-50 p-5 rounded-xl border border-orange-200">
+                  <h2 className="text-xl font-bold text-orange-900 mb-2">🍊 Orange로 중국 음식 데이터 군집화하기</h2>
+                  <p className="text-base text-gray-700 leading-relaxed">
+                    <b>다중분류훈련.csv</b>에는 음식 42개의 <b>매운 정도</b>와 <b>물의 양</b>이 들어 있어요.
+                    종류(짜장·짬뽕·쫄면) 열도 있지만, 군집화에서는 정답을 보여주지 않고 두 특징만으로 그룹을 나눠 볼 거예요.
+                  </p>
+                </div>
+
+                <div className="bg-teal-50 border-2 border-teal-200 rounded-xl p-5">
+                  <h3 className="text-lg font-bold text-teal-900 mb-3">📥 실습 자료 받기</h3>
+                  <div className="grid md:grid-cols-2 gap-3">
+                    {['csv', 'ows'].map(k => (
+                      <div key={k} className="bg-white rounded-lg border border-teal-100 p-4 flex flex-col gap-2">
+                        <p className="text-base text-gray-600">{FILE_LINKS[k].desc}</p>
+                        <div><FileLink f={FILE_LINKS[k]} /></div>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-3">*구글 드라이브가 새 탭으로 열려요. 오른쪽 위 다운로드(⬇) 버튼을 눌러 받은 뒤, csv 파일은 <b>본인학번</b> 폴더에 저장해요.</p>
+                </div>
+
+                <div className="bg-white border-2 border-gray-200 rounded-xl p-4">
+                  <p className="font-bold text-gray-800 mb-2">🧩 완성할 워크플로</p>
+                  <OrangeWorkflow />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                    <h3 className="text-lg font-bold text-gray-800">✅ 따라 하기 체크리스트</h3>
+                    <span className="text-base font-bold text-teal-700">{doneCount} / {orangeSteps.length} 완료</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mb-4 overflow-hidden">
+                    <div className="bg-gradient-to-r from-teal-500 to-emerald-500 h-3 transition-all duration-500" style={{ width: `${(doneCount / orangeSteps.length) * 100}%` }}></div>
+                  </div>
+                  <div className="space-y-4">
+                    {orangeSteps.map((st, i) => (
+                      <div key={i} className={`rounded-xl border-2 p-5 transition-all ${orangeDone[i] ? 'border-emerald-400 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <div className="flex items-center gap-3">
+                            <span className="w-9 h-9 rounded-full bg-teal-600 text-white font-bold flex items-center justify-center shrink-0">{i + 1}</span>
+                            <p className="font-bold text-gray-800 text-lg">{st.title}</p>
+                          </div>
+                          <span className={`text-sm font-bold px-3 py-1 rounded ${st.tabColor}`}>{st.tab}</span>
+                        </div>
+                        <ul className="mt-3 space-y-1.5 text-base text-gray-700 pl-12">
+                          {st.items.map((it, j) => <li key={j} className="list-disc">{it}</li>)}
+                        </ul>
+                        {st.link && (
+                          <div className="pl-12 mt-3 flex items-center gap-2 flex-wrap">
+                            <span className="text-sm text-gray-500">{st.linkNote || '먼저 실습 파일을 받아요:'}</span>
+                            <FileLink f={FILE_LINKS[st.link]} small />
+                          </div>
+                        )}
+                        <div className="pl-12 mt-3">
+                          <button onClick={() => setOrangeDone({ ...orangeDone, [i]: !orangeDone[i] })}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm ${orangeDone[i] ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'}`}>
+                            {orangeDone[i] ? '✔ 완료했어요' : '완료하면 체크'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="bg-teal-50 border-2 border-teal-200 rounded-xl p-5">
+                  <h3 className="text-lg font-bold text-teal-900 mb-3">📝 관찰 기록표</h3>
+                  <div className="space-y-2">
+                    {[2, 3, 4, 5].map(k => (
+                      <div key={k} className="flex flex-col md:flex-row md:items-center gap-2">
+                        <span className="font-bold text-teal-800 w-20 shrink-0">K = {k}</span>
+                        <input value={notes[k] || ''} onChange={(e) => setNotes({ ...notes, [k]: e.target.value })}
+                          placeholder="어떻게 나뉘었나요? (예: 왼쪽 아래 / 오른쪽 위 …)"
+                          className="flex-1 border border-teal-200 rounded-lg px-3 py-2 text-base" />
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-sm text-gray-500 mt-2">*기록은 이 화면에서만 보여요. 새로고침하면 사라지니 공책에도 옮겨 적어요.</p>
+                </div>
+
+                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-5 space-y-2">
+                  <p className="font-bold text-amber-900">🤔 생각해 보기</p>
+                  <p className="text-base text-gray-700">1. 음식 종류는 3가지예요. K = 3일 때 나뉜 군집이 실제 종류(짜장·짬뽕·쫄면)와 얼마나 비슷한가요?</p>
+                  <p className="text-base text-gray-700">2. k-Means 위젯에서 From 2 to 8 을 고르면 실루엣 점수가 가장 높은 K는 몇이었나요?</p>
+                  <p className="text-base text-gray-700">3. 군집에는 이름이 붙지 않아요(C1, C2 …). 각 군집에 어떤 이름을 붙이면 좋을까요?</p>
+                </div>
+                <Next />
+              </div>
+            )}
+
+            {/* ── 탭7: 장단점·활용 ── */}
+            {activeTab === 'review' && (
+              <div className="slide-in space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-3">⚖️ K-평균 알고리즘의 장단점</h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div className="bg-emerald-50 border-2 border-emerald-200 rounded-xl p-5">
+                      <p className="font-bold text-emerald-800 text-lg mb-3">👍 장점</p>
+                      <div className="space-y-2 text-base text-gray-700">
+                        <p className="bg-white rounded-lg p-3">원리가 단순해요. <span className="text-gray-500">찍고 → 붙이고 → 옮기기만 반복!</span></p>
+                        <p className="bg-white rounded-lg p-3">계산이 빨라요. <span className="text-gray-500">데이터가 많아도 금방 끝나요.</span></p>
+                      </div>
+                    </div>
+                    <div className="bg-red-50 border-2 border-red-200 rounded-xl p-5">
+                      <p className="font-bold text-red-800 text-lg mb-3">👎 단점</p>
+                      <div className="space-y-2 text-base text-gray-700">
+                        <p className="bg-white rounded-lg p-3">K를 미리 정해야 해요. <span className="text-gray-500">몇 그룹이 좋을지 모를 때 곤란해요.</span></p>
+                        <p className="bg-white rounded-lg p-3">시작점에 따라 결과가 달라요. <span className="text-gray-500">그래서 Re-runs로 여러 번 시도해요.</span></p>
+                        <p className="bg-white rounded-lg p-3">이상치에 약해요. <span className="text-gray-500">멀리 떨어진 점 하나가 평균을 끌고 가요.</span></p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-3">🌍 다양한 활용 사례</h3>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      ['🛒', '고객 세분화', '구매 패턴이 비슷한 고객 묶기', 'text-emerald-700'],
+                      ['🏥', '의료 데이터', '비슷한 특성의 환자 데이터 그룹 찾기', 'text-red-600'],
+                      ['🖼️', '이미지 분할', '비슷한 색과 영역을 묶기', 'text-amber-600'],
+                      ['🔍', '데이터 탐색', '몰랐던 그룹 발견하기', 'text-teal-700'],
+                    ].map(([ic, t, d, c]) => (
+                      <div key={t} className="bg-white border-2 border-gray-100 rounded-xl p-5">
+                        <p className="text-3xl mb-2">{ic}</p>
+                        <p className={`font-bold text-lg ${c}`}>{t}</p>
+                        <p className="text-base text-gray-600 mt-1">{d}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-1">🗺️ 기계학습 유형과 알고리즘, 이렇게 골라요</h3>
+                  <p className="text-base text-gray-500 mb-3">① 정답이 있나요? → ② 예측하려는 값은? → ③ 알고리즘</p>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[980px] text-center">
+                      {/* 1행: 뿌리 질문 */}
+                      <div className="flex justify-center">
+                        <div className="border-2 border-dashed border-teal-500 rounded-full px-6 py-2 font-bold text-gray-800 bg-white">① 정답(레이블)이 있나요?</div>
+                      </div>
+                      <TreeEdges height={46} groups={[{ from: 50, to: [col(3), col(6.5)] }]}
+                        labels={[{ x: col(3), text: '레이블 있음', cls: 'text-teal-700' }, { x: col(6.5), text: '레이블 없음', cls: 'text-rose-600', left: true }]} />
+                      {/* 2행: 학습 유형 */}
+                      <div className="grid grid-cols-7">
+                        <div className="col-span-6 flex justify-center px-1.5"><div className="bg-gray-800 text-white rounded-lg px-8 py-2 font-bold text-lg">지도학습</div></div>
+                        <div className="col-span-1 flex justify-center px-1.5"><div className="bg-gray-800 text-white rounded-lg px-4 py-2 font-bold text-lg">비지도학습</div></div>
+                      </div>
+                      <TreeEdges height={26} groups={[{ from: col(3), to: [col(3)] }, { from: col(6.5), to: [col(6.5)] }]} />
+                      {/* 3행: 두 번째 질문 */}
+                      <div className="grid grid-cols-7">
+                        <div className="col-span-6 flex justify-center px-1.5"><div className="border-2 border-dashed border-teal-500 rounded-full px-6 py-1.5 font-bold text-gray-700 bg-white">② 예측하려는 값(종속 변수)은?</div></div>
+                        <div className="col-span-1 flex justify-center px-1.5"><div className="border-2 border-dashed border-rose-400 rounded-full px-3 py-1.5 font-bold text-gray-700 text-sm bg-white">비슷한 것끼리 묶기</div></div>
+                      </div>
+                      <TreeEdges height={34} groups={[{ from: col(3), to: [col(1), col(4)] }, { from: col(6.5), to: [col(6.5)] }]} />
+                      {/* 4행: 문제 유형 */}
+                      <div className="grid grid-cols-7">
+                        <div className="col-span-2 px-1.5"><div className="border-2 border-amber-400 bg-amber-50 rounded-lg py-2 font-bold">회귀 <span className="font-normal text-gray-500">연속적인 숫자</span></div></div>
+                        <div className="col-span-4 px-1.5"><div className="border-2 border-amber-400 bg-amber-50 rounded-lg py-2 font-bold">분류 <span className="font-normal text-gray-500">범주형 데이터</span></div></div>
+                        <div className="col-span-1 px-1.5"><div className="border-2 border-rose-400 bg-rose-50 rounded-lg py-2 font-bold">군집화</div></div>
+                      </div>
+                      <TreeEdges height={34} groups={[
+                        { from: col(1), to: [col(0.5), col(1.5)] },
+                        { from: col(4), to: [col(2.5), col(3.5), col(4.5), col(5.5)] },
+                        { from: col(6.5), to: [col(6.5)] },
+                      ]} />
+                      {/* 5행: 알고리즘 */}
+                      <div className="grid grid-cols-7">
+                      {[
+                        ['단순 선형 회귀', '원인(독립 변수) 1개로 결과 예측', '공부 시간 → 점수'],
+                        ['다중 선형 회귀', '원인 2개 이상으로 결과 예측', '공부·수면 시간 → 점수'],
+                        ['로지스틱 회귀', '답이 두 가지(예/아니오)일 때', '스팸 / 정상 메일'],
+                        ['서포트 벡터 머신', '특징이 아주 많은 복잡한 데이터', '손글씨 숫자 인식'],
+                        ['k-최근접 이웃', '데이터가 적고 패턴이 간단할 때', '과일 종류 맞히기'],
+                        ['의사결정 트리', '왜 그렇게 정했는지 설명이 필요할 때', '대출 승인 규칙'],
+                        ['k-평균 알고리즘', '그룹 수를 정할 수 있고 데이터가 숫자일 때', '고객 그룹 나누기'],
+                      ].map(([t, d, e], i) => (
+                        <div key={t} className="px-1.5">
+                          <div className={`h-full rounded-lg p-3 text-left border-2 ${i === 6 ? 'border-teal-500 bg-teal-50 ring-4 ring-teal-200' : 'border-gray-200 bg-gray-50'}`}>
+                            <p className={`font-bold text-center mb-2 ${i === 6 ? 'text-teal-800' : 'text-gray-800'}`}>{t}</p>
+                            <p className="text-sm text-gray-600">{d}</p>
+                            <p className={`text-sm mt-1 ${i === 6 ? 'text-teal-700 font-bold' : 'text-emerald-700'}`}>예) {e}</p>
+                          </div>
+                        </div>
+                      ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <Next />
+              </div>
+            )}
+
+            {/* ── 탭8: 퀴즈 ── */}
+            {activeTab === 'quiz' && (
+              <div className="slide-in space-y-5">
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-300">
+                  <p className="font-bold text-yellow-900 mb-1">🎯 배운 내용을 확인해 봐요</p>
+                  <p className="text-base text-gray-700">문제마다 한 번만 고를 수 있어요. 신중하게!</p>
+                </div>
+                {quizData.map((q, qi) => {
+                  const answered = quizAnswers[q.id] !== undefined;
+                  const correct = quizAnswers[q.id] === q.ans;
+                  return (
+                    <div key={q.id} className={`bg-white border-2 rounded-xl p-5 ${shakeId === q.id ? 'shake' : ''} ${answered ? (correct ? 'border-emerald-300' : 'border-red-300') : 'border-gray-200'}`}>
+                      <p className="font-bold text-gray-800 text-lg mb-3">Q{qi + 1}. {q.q}</p>
+                      <div className="grid md:grid-cols-2 gap-2">
+                        {q.opts.map((o, oi) => {
+                          let cls = 'bg-gray-50 border-gray-200 hover:bg-teal-50 hover:border-teal-300';
+                          if (answered) {
+                            if (oi === q.ans) cls = 'bg-emerald-100 border-emerald-400 text-emerald-900';
+                            else if (oi === quizAnswers[q.id]) cls = 'bg-red-100 border-red-400 text-red-900';
+                            else cls = 'bg-gray-50 border-gray-200 opacity-60';
+                          }
+                          return (
+                            <button key={oi} onClick={() => handleQuiz(q.id, oi)} disabled={answered}
+                              className={`text-left px-4 py-3 rounded-lg border-2 font-medium text-base transition-all ${cls}`}>
+                              {oi + 1}) {o}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {answered && (
+                        <div className={`slide-in mt-3 p-3 rounded-lg text-base ${correct ? 'bg-emerald-50 text-emerald-900' : 'bg-red-50 text-red-900'}`}>
+                          <b>{correct ? '⭕ 정답이에요!' : '❌ 아쉬워요!'}</b> {q.exp}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {Object.keys(quizAnswers).length === quizData.length && (
+                  <div className="slide-in bg-gradient-to-r from-teal-50 to-emerald-50 p-6 rounded-xl border-2 border-teal-300 text-center">
+                    <div className="text-5xl mb-3">
+                      {calcScore() === quizData.length ? '🏆' : calcScore() >= 5 ? '🌟' : calcScore() >= 3 ? '👍' : '📚'}
+                    </div>
+                    <p className="text-2xl font-bold text-teal-800 mb-2">{calcScore()} / {quizData.length} 점</p>
+                    <p className="text-base text-gray-600">
+                      {calcScore() === quizData.length ? '완벽해요! K-평균 알고리즘 마스터예요! 🏆'
+                        : calcScore() >= 5 ? '잘했어요! 거의 다 맞혔네요 👍'
+                        : calcScore() >= 3 ? '조금만 더 복습해 봐요! 💪'
+                        : '4단계 원리 탭부터 다시 살펴봐요! 📖'}
+                    </p>
+                    <button onClick={() => setQuizAnswers({})}
+                      className="mt-4 bg-white border-2 border-teal-300 text-teal-700 px-5 py-2 rounded-lg font-bold hover:bg-teal-50">↺ 다시 풀기</button>
+                  </div>
+                )}
+              </div>
+            )}
+
+          </div>
+          <div className="p-6 text-center border-t border-gray-100">
+            <a href="index.html"
+              className="inline-block bg-gradient-to-r from-teal-700 to-emerald-700 text-white w-64 py-3 rounded-lg font-bold text-lg hover:opacity-90 transition-all shadow-lg hover:shadow-xl">
+              🏠 홈으로 돌아가기
+            </a>
+          </div>
+        </div>
+      );
+    };
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
